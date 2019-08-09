@@ -1,25 +1,16 @@
+from collections import OrderedDict
+from copy import deepcopy
+
 import graphene
 from django.contrib.contenttypes.fields import GenericRel
 import django.db.models
-from graphene import Int
 from graphene_django.fields import DjangoListField
-from graphene_django_extras.converter import convert_django_field
+from graphene_django_extras.converter import convert_django_field, convert_django_field_with_choices
+from graphene_django_extras.registry import get_global_registry
 from graphene_django_extras.utils import is_required
 
 from adapters.graphql.fields import DjangoNestableListObjectField
-
-
-@convert_django_field.register(django.db.models.AutoField)
-def convert_field_to_id(field, registry=None, input_flag=None, nested_field=False):
-    if input_flag:
-        return Int(
-            description=field.help_text or "Django object unique identification field",
-            required=input_flag == "update",
-        )
-    return Int(
-        description=field.help_text or "Django object unique identification field",
-        required=not field.null,
-    )
+from utils import get_local_fields
 
 
 @convert_django_field.register(GenericRel)
@@ -61,3 +52,37 @@ def convert_many_rel_to_djangomodel(
                 )
 
     return graphene.Dynamic(dynamic_type)
+
+
+def convert_local_fields(model, convertable_fields):
+    """
+    Converts user-specified model fields as if they were nullable.
+    Also transforms ID to integer field, since it is (usually) an integer.
+    """
+
+    # define how each field shall be converted
+    field_conversions = {
+        django.db.models.fields.AutoField: django.db.models.IntegerField
+    }
+
+    fields = [[name, deepcopy(field)] for name, field in get_local_fields(model)]
+
+    for i in range(len(fields)):
+        # change a field's type if necessary
+        new_field = field_conversions.get(fields[i][1].__class__, None)
+        if new_field is not None:
+            fields[i][1] = new_field()
+
+        # set all fields as nullable
+        fields[i][1].null = True
+
+    # convert the fields
+    ret = OrderedDict()
+
+    for name, field in fields:
+        if name not in convertable_fields:
+            continue
+        converted = convert_django_field_with_choices(field, get_global_registry())
+        ret[name] = converted
+
+    return ret

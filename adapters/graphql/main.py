@@ -8,7 +8,7 @@ from graphene_django.views import GraphQLView
 from graphene_django_extras.settings import graphql_api_settings
 
 from adapters.base import Adapter
-import adapters.graphql.converter  # IMPORTANT!!!
+from adapters.graphql.converter import convert_local_fields
 from adapters.graphql.fields import DjangoNestableListObjectField
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
@@ -85,6 +85,7 @@ class GraphQL(Adapter):
             {
                 "Meta": type_meta,
                 "get_list_type": lambda: type_list_class,
+                **convert_local_fields(describer.model, describer.determine_fields())
             }
         )
 

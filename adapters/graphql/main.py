@@ -138,7 +138,7 @@ class GraphQL(Adapter):
     def _create_permissions_check_method(self, field_name, permission_classes=()):
         def resolve_method(self, info):
             for permission_class in permission_classes:
-                pc = permission_class(info.context)
+                pc = permission_class(info.context, obj=self)
                 if not pc.has_permission():
                     raise PermissionError(pc.error_message())
             return getattr(self, field_name)

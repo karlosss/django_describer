@@ -9,7 +9,8 @@ from graphene_django_extras.settings import graphql_api_settings
 
 from adapters.base import Adapter
 from adapters.graphql.converter import convert_local_fields
-from adapters.graphql.fields import DjangoNestableListObjectField
+from adapters.graphql.fields import DjangoNestableListObjectField, DjangoNestableListObjectPermissionsField, \
+    DjangoObjectPermissionsField
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
 from registry import Registry
@@ -67,7 +68,8 @@ class GraphQL(Adapter):
 
     def _create_type_class(self, describer):
         """
-        Creates a DjangoObjectType and a DjangoListObjectType for a model. Must be in this order!!!
+        Creates a DjangoObjectType and a DjangoListObjectType for a model, and links them together.
+        Must be in this order!!!
         """
         type_meta = type(
             "Meta",
@@ -128,9 +130,9 @@ class GraphQL(Adapter):
         return filter_fields
 
     def _create_permissions_check_resolver(self, permission_classes=()):
-        def resolver(self, info, results, **kwargs):
+        def resolver(root, info, results=None, **kwargs):
             for permission_class in permission_classes:
-                pc = permission_class(info.context, qs=results)
+                pc = permission_class(info.context, obj=root, qs=results)
                 if not pc.has_permission():
                     raise PermissionError(pc.error_message())
         resolver.permissions_check = True
@@ -153,9 +155,10 @@ class GraphQL(Adapter):
             "Query",
             (GraphQL._Query,),
             {
-                model_singular: DjangoObjectField(type_classes[describer.model],
-                                                  description="Single {} query.".format(model_singular)),
-                model_plural: DjangoNestableListObjectField(
+                model_singular: DjangoObjectPermissionsField(type_classes[describer.model],
+                                                             description="Single {} query.".format(model_singular)),
+
+                model_plural: DjangoNestableListObjectPermissionsField(
                     type_classes[describer.model].get_list_type(),
                     description="Multiple {} query.".format(model_plural)),
             }
@@ -169,6 +172,12 @@ class GraphQL(Adapter):
             setattr(query_class,
                     "resolve_{}".format(model_plural),
                     self._create_permissions_check_resolver(describer.get_listing_permissions()))
+
+        if describer.detail_permissions:
+            model_singular = model_singular_name(describer.model)
+            setattr(query_class,
+                    "resolve_{}".format(model_singular),
+                    self._create_permissions_check_resolver(describer.get_detail_permissions()))
 
     def _add_permissions_to_type_class(self, describer, type_class):
         local_fields = field_names(get_local_fields(describer.model))
@@ -204,7 +213,7 @@ class GraphQL(Adapter):
             self.query_classes[describer.model] = self._create_query_class(describer, self.type_classes)
 
             # add permissions to each Query class (listing, detail)
-            # self._add_permissions_to_query_class(describer, self.query_classes[describer.model])
+            self._add_permissions_to_query_class(describer, self.query_classes[describer.model])
 
         # create GraphQL schema
         schema = graphene.Schema(query=self._create_global_query_class(self.query_classes))

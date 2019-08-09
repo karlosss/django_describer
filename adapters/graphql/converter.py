@@ -9,7 +9,7 @@ from graphene_django_extras.converter import convert_django_field, convert_djang
 from graphene_django_extras.registry import get_global_registry
 from graphene_django_extras.utils import is_required
 
-from adapters.graphql.fields import DjangoNestableListObjectField
+from adapters.graphql.fields import DjangoNestableListObjectField, DjangoNestableListObjectPermissionsField
 from utils import get_local_fields
 
 
@@ -41,7 +41,7 @@ def convert_many_rel_to_djangomodel(
                 return DjangoListField(_type)
             elif _type._meta.filter_fields or _type._meta.filterset_class:
                 # return nested relations as a field with pagination
-                return DjangoNestableListObjectField(
+                return DjangoNestableListObjectPermissionsField(
                     _type,
                     required=is_required(field) and input_flag == "create",
                     filterset_class=_type._meta.filterset_class,

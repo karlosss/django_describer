@@ -83,6 +83,15 @@ class Describer(metaclass=DescriberMeta):
             return cls.listing_permissions,
         return cls.listing_permissions
 
+    @classmethod
+    def get_detail_permissions(cls):
+        """
+        A small wrapper around detail_permissions, handles inconsistencies of one class and a tuple of classes.
+        """
+        if not isinstance(cls.detail_permissions, (list, tuple)):
+            return cls.detail_permissions,
+        return cls.detail_permissions
+
     model = None
 
     extra_fields = {}
@@ -91,5 +100,6 @@ class Describer(metaclass=DescriberMeta):
 
     field_permissions = {}
     listing_permissions = ()
+    detail_permissions = ()
     default_page_size = None
     max_page_size = None

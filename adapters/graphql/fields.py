@@ -1,7 +1,7 @@
 import graphene
 from graphene import Argument
 from graphene_django.utils import maybe_queryset, is_valid_django_model
-from graphene_django_extras import DjangoFilterListField, DjangoListObjectField
+from graphene_django_extras import DjangoFilterListField, DjangoListObjectField, DjangoObjectField
 from graphene_django_extras.base_types import DjangoListObjectBase
 from graphene_django_extras.utils import queryset_factory, get_extra_filters
 
@@ -45,10 +45,34 @@ class DjangoFilterOrderingListField(OrderingMixin, DjangoFilterListField):
     """
 
 
+class PermissionsCheckMixin:
+    def get_resolver(self, parent_resolver):
+        if hasattr(parent_resolver, "permissions_check"):
+            self.permission_check_method = parent_resolver
+        return super().get_resolver(parent_resolver)
+
+    def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
+        output = super().list_resolver(manager, filterset_class, filtering_args, root, info, **kwargs)
+
+        if hasattr(self, "permission_check_method"):
+            self.permission_check_method(root, info, output.results, **kwargs)
+
+        return output
+
+    def object_resolver(self, manager, root, info, **kwargs):
+        output = super().object_resolver(manager, root, info, **kwargs)
+
+        if hasattr(self, "permission_check_method"):
+            self.permission_check_method(output, info, **kwargs)
+
+        return output
+
+
 class DjangoNestableListObjectField(DjangoListObjectField):
     """
-    Similar to DjangoListObjectField, except it can be nested into ManyToOneRel. Also can handle permissions.
+    Similar to DjangoListObjectField, except it can be nested into ManyToOneRel.
     """
+
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
         qs = queryset_factory(manager, info.field_asts, info.fragments, **kwargs)
 
@@ -63,8 +87,8 @@ class DjangoNestableListObjectField(DjangoListObjectField):
         count = qs.count()
         results = maybe_queryset(qs)
 
-        if hasattr(self, "permission_check_method"):
-            self.permission_check_method(root, info, results, **kwargs)
+        # if hasattr(self, "permission_check_method"):
+        #     self.permission_check_method(root, info, results, **kwargs)
 
         return DjangoListObjectBase(
             count=count,
@@ -72,7 +96,10 @@ class DjangoNestableListObjectField(DjangoListObjectField):
             results_field_name=self.type._meta.results_field_name,
         )
 
-    def get_resolver(self, parent_resolver):
-        if hasattr(parent_resolver, "permissions_check"):
-            self.permission_check_method = parent_resolver
-        return super().get_resolver(parent_resolver)
+
+class DjangoNestableListObjectPermissionsField(PermissionsCheckMixin, DjangoNestableListObjectField):
+    pass
+
+
+class DjangoObjectPermissionsField(PermissionsCheckMixin, DjangoObjectField):
+    pass

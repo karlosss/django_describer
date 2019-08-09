@@ -74,6 +74,15 @@ class Describer(metaclass=DescriberMeta):
                 ret[field] = tuple(permissions)
         return ret
 
+    @classmethod
+    def get_listing_permissions(cls):
+        """
+        A small wrapper around listing_permissions, handles inconsistencies of one class and a tuple of classes.
+        """
+        if not isinstance(cls.listing_permissions, (list, tuple)):
+            return cls.listing_permissions,
+        return cls.listing_permissions
+
     model = None
 
     extra_fields = {}

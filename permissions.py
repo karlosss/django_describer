@@ -7,10 +7,11 @@ class AttrDict(dict):
 
 
 class Permission:
-    def __init__(self, request, obj=None, data=None):
+    def __init__(self, request, obj=None, data=None, qs=None):
         self.request = request
         self.obj = obj
         self.data = AttrDict(data) if data else AttrDict()
+        self.qs = qs
 
     def has_permission(self):
         raise NotImplementedError

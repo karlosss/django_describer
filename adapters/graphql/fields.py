@@ -47,7 +47,7 @@ class DjangoFilterOrderingListField(OrderingMixin, DjangoFilterListField):
 
 class DjangoNestableListObjectField(DjangoListObjectField):
     """
-    Similar to DjangoListObjectField, except it can be nested into ManyToOneRel.
+    Similar to DjangoListObjectField, except it can be nested into ManyToOneRel. Also can handle permissions.
     """
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
         qs = queryset_factory(manager, info.field_asts, info.fragments, **kwargs)
@@ -61,9 +61,18 @@ class DjangoNestableListObjectField(DjangoListObjectField):
             qs = qs.filter(**extra_filters)
 
         count = qs.count()
+        results = maybe_queryset(qs)
+
+        if hasattr(self, "permission_check_method"):
+            self.permission_check_method(root, info, results, **kwargs)
 
         return DjangoListObjectBase(
             count=count,
-            results=maybe_queryset(qs),
+            results=results,
             results_field_name=self.type._meta.results_field_name,
         )
+
+    def get_resolver(self, parent_resolver):
+        if hasattr(parent_resolver, "permissions_check"):
+            self.permission_check_method = parent_resolver
+        return super().get_resolver(parent_resolver)

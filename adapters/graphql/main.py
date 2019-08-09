@@ -7,12 +7,13 @@ from graphene_django_extras import DjangoObjectType, DjangoObjectField, LimitOff
 from graphene_django.views import GraphQLView
 from graphene_django_extras.settings import graphql_api_settings
 
-from adapters.graphql.converter import convert_local_fields
 from adapters.base import Adapter
+import adapters.graphql.converter  # IMPORTANT!!!
 from adapters.graphql.fields import DjangoNestableListObjectField
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
 from registry import Registry
+from utils import model_singular_name, model_plural_name, get_local_fields, field_names
 
 
 class GraphQL(Adapter):
@@ -66,34 +67,14 @@ class GraphQL(Adapter):
 
     def _create_type_class(self, describer):
         """
-
+        Creates a DjangoObjectType and a DjangoListObjectType for a model. Must be in this order!!!
         """
-
-        type_list_meta = type(
-            "Meta",
-            (object,),
-            {
-                "model": describer.model,
-                "pagination": LimitOffsetGraphqlPagination(
-                    default_limit=describer.default_page_size or graphql_api_settings.DEFAULT_PAGE_SIZE,
-                    max_limit=describer.max_page_size or graphql_api_settings.DEFAULT_PAGE_SIZE
-                ),
-                "filter_fields": self._create_filter_fields(describer),
-            }
-        )
-        type_list_class = type(
-            "{}ListType".format(describer.model.__name__),
-            (DjangoListObjectType,),
-            {
-                "Meta": type_list_meta
-            }
-        )
-
         type_meta = type(
             "Meta",
             (object,),
             {
                 "model": describer.model,
+                "filter_fields": self._create_filter_fields(describer),
                 "only_fields": describer.determine_fields(),
             }
         )
@@ -104,7 +85,26 @@ class GraphQL(Adapter):
             {
                 "Meta": type_meta,
                 "get_list_type": lambda: type_list_class,
-                **convert_local_fields(describer.model, describer.determine_fields()),
+            }
+        )
+
+        type_list_meta = type(
+            "Meta",
+            (object,),
+            {
+                "model": describer.model,
+                "pagination": LimitOffsetGraphqlPagination(
+                    default_limit=describer.default_page_size or graphql_api_settings.DEFAULT_PAGE_SIZE,
+                    max_limit=describer.max_page_size or graphql_api_settings.DEFAULT_PAGE_SIZE
+                ),
+            }
+        )
+
+        type_list_class = type(
+            "{}ListType".format(describer.model.__name__),
+            (DjangoListObjectType,),
+            {
+                "Meta": type_list_meta,
             }
         )
 
@@ -126,19 +126,27 @@ class GraphQL(Adapter):
 
         return filter_fields
 
+    def _create_permissions_check_resolver(self, permission_classes=()):
+        def resolver(self, info, results, **kwargs):
+            for permission_class in permission_classes:
+                pc = permission_class(info.context, qs=results)
+                if not pc.has_permission():
+                    raise PermissionError(pc.error_message())
+        resolver.permissions_check = True
+        return resolver
+
+    def _create_permissions_check_method(self, field_name, permission_classes=()):
+        def resolve_method(self, info):
+            for permission_class in permission_classes:
+                pc = permission_class(info.context)
+                if not pc.has_permission():
+                    raise PermissionError(pc.error_message())
+            return getattr(self, field_name)
+        return resolve_method
+
     def _create_query_class(self, describer, type_classes):
-        """
-        Creates such a class:
-
-        class Query(object):
-            all_categories = graphene.List(CategoryType)
-
-            def resolve_all_categories(self, info, **kwargs):
-                return Category.objects.all()
-        """
-
-        model_plural = describer.model._meta.verbose_name_plural
-        model_singular = describer.model._meta.verbose_name
+        model_singular = model_singular_name(describer.model)
+        model_plural = model_plural_name(describer.model)
 
         query_class = type(
             "Query",
@@ -151,16 +159,30 @@ class GraphQL(Adapter):
                     description="Multiple {} query.".format(model_plural)),
             }
         )
+
         return query_class
 
+    def _add_permissions_to_query_class(self, describer, query_class):
+        if describer.listing_permissions:
+            model_plural = model_plural_name(describer.model)
+            setattr(query_class,
+                    "resolve_{}".format(model_plural),
+                    self._create_permissions_check_resolver(describer.get_listing_permissions()))
+
+    def _add_permissions_to_type_class(self, describer, type_class):
+        local_fields = field_names(get_local_fields(describer.model))
+
+        for field_name, permission_classes in describer.get_field_permissions().items():
+            if field_name in local_fields:
+                setattr(type_class,
+                        "resolve_{}".format(field_name),
+                        self._create_permissions_check_method(field_name, permission_classes))
+            else:
+                setattr(type_class,
+                        "resolve_{}".format(field_name),
+                        self._create_permissions_check_resolver(permission_classes))
+
     def _create_global_query_class(self, query_classes):
-        """
-        Creates such a class:
-
-        class Query(cookbook.ingredients.schema.Query, graphene.ObjectType):
-            pass
-        """
-
         return type("Query", query_classes.values() + (graphene.ObjectType,), {})
 
     def generate(self):
@@ -173,9 +195,15 @@ class GraphQL(Adapter):
             # create a DjangoObjectType for the model
             self.type_classes[describer.model] = self._create_type_class(describer)
 
+            # add permissions to each DjangoObjectType class (object fields)
+            self._add_permissions_to_type_class(describer, self.type_classes[describer.model])
+
         for describer in describers:
             # create a Query class for each model (need to create all of them first)
             self.query_classes[describer.model] = self._create_query_class(describer, self.type_classes)
+
+            # add permissions to each Query class (listing, detail)
+            # self._add_permissions_to_query_class(describer, self.query_classes[describer.model])
 
         # create GraphQL schema
         schema = graphene.Schema(query=self._create_global_query_class(self.query_classes))

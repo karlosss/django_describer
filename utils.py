@@ -63,3 +63,11 @@ def determine_fields(model, only_fields, exclude_fields):
         if field not in all_fields:
             raise ValueError("Unknown field: {}.".format(field))
     return tuple(f for f in all_fields if f not in exclude_fields)
+
+
+def model_plural_name(model):
+    return str(model._meta.verbose_name_plural)
+
+
+def model_singular_name(model):
+    return str(model._meta.verbose_name)

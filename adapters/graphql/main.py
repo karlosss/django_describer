@@ -13,7 +13,7 @@ from adapters.graphql.fields import DjangoNestableListObjectPermissionsField, \
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
 from registry import Registry
-from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields, get_reverse_fields
+from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields
 
 
 class GraphQL(Adapter):
@@ -143,8 +143,8 @@ class GraphQL(Adapter):
                     raise PermissionError(pc.error_message())
 
             # return only for non-list Fields
-            if field_name and hasattr(self, field_name):
-                return getattr(self, field_name)
+            if field_name and hasattr(root, field_name):
+                return getattr(root, field_name)
 
         # necessary flag for ListFields
         method.permissions_check = True

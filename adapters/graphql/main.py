@@ -13,7 +13,7 @@ from adapters.graphql.fields import DjangoNestableListObjectPermissionsField, \
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
 from registry import Registry
-from utils import model_singular_name, model_plural_name, get_local_fields, field_names, get_all_model_fields
+from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields, get_reverse_fields
 
 
 class GraphQL(Adapter):
@@ -35,6 +35,7 @@ class GraphQL(Adapter):
         # for filters, do not create a graphene field, return just the argument
         if "arg" in kwargs and kwargs["arg"]:
             return type
+
         return get_field_as(type, _as=graphene.Field)
 
     def string_type(self, type, **kwargs):
@@ -60,6 +61,7 @@ class GraphQL(Adapter):
     def model_type(self, type, **kwargs):
         if "list" in kwargs and kwargs["list"]:
             return self.type_classes[type.model].get_list_type()
+
         return graphene.Dynamic(lambda: graphene.Field(self.type_classes[type.model]))
 
     class _Query:
@@ -130,23 +132,23 @@ class GraphQL(Adapter):
 
         return filter_fields
 
-    def _create_permissions_check_resolver(self, permission_classes=()):
-        def resolver(root, info, results=None, **kwargs):
+    def _create_permissions_check_method(self, field_name=None, permission_classes=()):
+        """
+        Generator of methods to check permissions for both ListFields and Fields.
+        """
+        def method(root, info, results=None, **kwargs):
             for permission_class in permission_classes:
                 pc = permission_class(info.context, obj=root, qs=results)
                 if not pc.has_permission():
                     raise PermissionError(pc.error_message())
-        resolver.permissions_check = True
-        return resolver
 
-    def _create_permissions_check_method(self, field_name, permission_classes=()):
-        def resolve_method(self, info):
-            for permission_class in permission_classes:
-                pc = permission_class(info.context, obj=self)
-                if not pc.has_permission():
-                    raise PermissionError(pc.error_message())
-            return getattr(self, field_name)
-        return resolve_method
+            # return only for non-list Fields
+            if field_name and hasattr(self, field_name):
+                return getattr(self, field_name)
+
+        # necessary flag for ListFields
+        method.permissions_check = True
+        return method
 
     def _create_query_class(self, describer, type_classes):
         model_singular = model_singular_name(describer.model)
@@ -169,29 +171,22 @@ class GraphQL(Adapter):
 
     def _add_permissions_to_query_class(self, describer, query_class):
         if describer.listing_permissions:
-            model_plural = model_plural_name(describer.model)
+            field_name = "resolve_{}".format(model_plural_name(describer.model))
             setattr(query_class,
-                    "resolve_{}".format(model_plural),
-                    self._create_permissions_check_resolver(describer.get_listing_permissions()))
+                    field_name,
+                    self._create_permissions_check_method(permission_classes=describer.get_listing_permissions()))
 
         if describer.detail_permissions:
-            model_singular = model_singular_name(describer.model)
+            field_name = "resolve_{}".format(model_singular_name(describer.model))
             setattr(query_class,
-                    "resolve_{}".format(model_singular),
-                    self._create_permissions_check_resolver(describer.get_detail_permissions()))
+                    field_name,
+                    self._create_permissions_check_method(permission_classes=describer.get_detail_permissions()))
 
     def _add_permissions_to_type_class(self, describer, type_class):
-        local_fields = field_names(get_local_fields(describer.model))
-
         for field_name, permission_classes in describer.get_field_permissions().items():
-            if field_name in local_fields:
-                setattr(type_class,
-                        "resolve_{}".format(field_name),
-                        self._create_permissions_check_method(field_name, permission_classes))
-            else:
-                setattr(type_class,
-                        "resolve_{}".format(field_name),
-                        self._create_permissions_check_resolver(permission_classes))
+            setattr(type_class,
+                    "resolve_{}".format(field_name),
+                    self._create_permissions_check_method(field_name, permission_classes))
 
     def _add_extra_fields_to_type_class(self, describer, type_class):
         existing_fields = field_names(get_all_model_fields(describer.model))

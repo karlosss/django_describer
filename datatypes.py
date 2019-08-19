@@ -79,7 +79,7 @@ class ModelType(Type):
 modeltype_registry = Registry(key_type=Model, value_type=ModelType)
 
 
-class List(Type):
+class QuerySet(Type):
     def __init__(self, of_type, **kwargs):
         self.of_type = of_type
         super().__init__(**kwargs)
@@ -89,7 +89,7 @@ class List(Type):
         return modeltype_registry[self.of_type] or self.of_type
 
     def convert(self, to, **kwargs):
-        return to.list_type(self, **kwargs)
+        return to.queryset_type(self, **kwargs)
 
 
 class NullType(Type):

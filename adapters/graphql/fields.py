@@ -71,10 +71,18 @@ class PermissionsCheckMixin:
 class DjangoNestableListObjectField(DjangoListObjectField):
     """
     Similar to DjangoListObjectField, except it can be nested into ManyToOneRel.
+    Also, it can fetch queryset by property.
     """
 
+    def __init__(self, _type, *args, property_name=None, **kwargs):
+        super().__init__(_type, *args, **kwargs)
+        self.property_name = property_name
+
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
-        qs = queryset_factory(manager, info.field_asts, info.fragments, **kwargs)
+        if self.property_name is not None and root and is_valid_django_model(root._meta.model):
+            qs = getattr(root, self.property_name)
+        else:
+            qs = queryset_factory(manager, info.field_asts, info.fragments, **kwargs)
 
         filter_kwargs = {k: v for k, v in kwargs.items() if k in filtering_args}
 
@@ -86,9 +94,6 @@ class DjangoNestableListObjectField(DjangoListObjectField):
 
         count = qs.count()
         results = maybe_queryset(qs)
-
-        # if hasattr(self, "permission_check_method"):
-        #     self.permission_check_method(root, info, results, **kwargs)
 
         return DjangoListObjectBase(
             count=count,

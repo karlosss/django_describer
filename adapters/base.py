@@ -18,7 +18,7 @@ class Adapter:
     def boolean_type(self, type, **kwargs):
         raise NotImplementedError
 
-    def list_type(self, type, **kwargs):
+    def queryset_type(self, type, **kwargs):
         raise NotImplementedError
 
     def model_type(self, type, **kwargs):

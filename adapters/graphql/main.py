@@ -2,19 +2,18 @@ import django
 import graphene
 from django.db.models import Model
 from graphene.types.utils import get_field_as
-from graphene_django_extras import DjangoObjectType, DjangoObjectField, LimitOffsetGraphqlPagination, \
-    DjangoListObjectType
+from graphene_django_extras import DjangoObjectType, LimitOffsetGraphqlPagination, DjangoListObjectType
 from graphene_django.views import GraphQLView
 from graphene_django_extras.settings import graphql_api_settings
 
 from adapters.base import Adapter
 from adapters.graphql.converter import convert_local_fields
-from adapters.graphql.fields import DjangoNestableListObjectField, DjangoNestableListObjectPermissionsField, \
+from adapters.graphql.fields import DjangoNestableListObjectPermissionsField, \
     DjangoObjectPermissionsField
 from datatypes import String, Integer, Float, Boolean, NullType
 from describers import get_describers
 from registry import Registry
-from utils import model_singular_name, model_plural_name, get_local_fields, field_names
+from utils import model_singular_name, model_plural_name, get_local_fields, field_names, get_all_model_fields
 
 
 class GraphQL(Adapter):
@@ -53,12 +52,14 @@ class GraphQL(Adapter):
     def boolean_type(self, type, **kwargs):
         return self._convert_primitive_type(graphene.types.Boolean(), **kwargs)
 
-    def list_type(self, type, **kwargs):
-        return get_field_as(graphene.types.List(type.type.convert(self, list=True)), _as=graphene.Field)
+    def queryset_type(self, type, **kwargs):
+        property_name = kwargs.get("property_name", None)
+        return graphene.Dynamic(lambda: DjangoNestableListObjectPermissionsField(type.type.convert(self, list=True),
+                                                                                 property_name=property_name))
 
     def model_type(self, type, **kwargs):
         if "list" in kwargs and kwargs["list"]:
-            return self.type_classes[type.model]
+            return self.type_classes[type.model].get_list_type()
         return graphene.Dynamic(lambda: graphene.Field(self.type_classes[type.model]))
 
     class _Query:
@@ -192,6 +193,15 @@ class GraphQL(Adapter):
                         "resolve_{}".format(field_name),
                         self._create_permissions_check_resolver(permission_classes))
 
+    def _add_extra_fields_to_type_class(self, describer, type_class):
+        existing_fields = field_names(get_all_model_fields(describer.model))
+
+        for field_name, return_type in describer.get_extra_fields().items():
+            if field_name in existing_fields:
+                raise ValueError("This field already exists.")
+
+            type_class._meta.fields[field_name] = return_type.convert(self, property_name=field_name)
+
     def _create_global_query_class(self, query_classes):
         return type("Query", query_classes.values() + (graphene.ObjectType,), {})
 
@@ -204,6 +214,9 @@ class GraphQL(Adapter):
         for describer in describers:
             # create a DjangoObjectType for the model
             self.type_classes[describer.model] = self._create_type_class(describer)
+
+            # add extra fields to each DjangoObjectType class
+            self._add_extra_fields_to_type_class(describer, self.type_classes[describer.model])
 
             # add permissions to each DjangoObjectType class (object fields)
             self._add_permissions_to_type_class(describer, self.type_classes[describer.model])

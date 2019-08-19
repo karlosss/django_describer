@@ -94,12 +94,14 @@ class Describer(metaclass=DescriberMeta):
 
     model = None
 
-    extra_fields = {}
     only_fields = None
     exclude_fields = None
+
+    extra_fields = {}
 
     field_permissions = {}
     listing_permissions = ()
     detail_permissions = ()
+
     default_page_size = None
     max_page_size = None

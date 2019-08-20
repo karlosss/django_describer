@@ -1,3 +1,4 @@
+from enum import Enum
 from inspect import isclass
 
 from django.db.models import Model
@@ -28,30 +29,41 @@ class DescriberMeta(type):
         return cls
 
 
+class Mode(Enum):
+    LIST = 0
+    DETAIL = 1
+    CREATE = 2
+    UPDATE = 3
+    DELETE = 4
+
+
 class Describer(metaclass=DescriberMeta):
     @classmethod
     def is_abstract(cls):
         return cls.model is None
 
     @classmethod
-    def determine_fields(cls):
+    def determine_fields(cls, mode):
         """
-        Constructs a tuple of retrievable fields based on the model and user specification.
+        Constructs a tuple of fields based on the model and user specification.
         """
-        return determine_fields(cls.model, cls.only_fields, cls.exclude_fields)
+        if mode in (Mode.LIST, Mode.DETAIL):
+            return determine_fields(cls.model, cls.retrieve_only_fields, cls.retrieve_exclude_fields)
+        elif mode == Mode.DETAIL:
+            raise
 
     @classmethod
-    def get_extra_fields_names(cls):
-        return tuple(cls.extra_fields.keys())
-
-    @classmethod
-    def get_extra_fields(cls):
+    def get_extra_fields(cls, mode):
         """
         A small wrapper around extra_fields, converting return_types of Django models to ModelTypes.
         Also instantiates all types, if they aren't yet.
         """
+        iterable = None
+        if mode in (Mode.LIST, Mode.DETAIL):
+            iterable = cls.retrieve_extra_fields.items()
+
         ret = {}
-        for name, return_type in cls.extra_fields.items():
+        for name, return_type in iterable:
             if isclass(return_type):
                 if issubclass(return_type, Model):
                     ret[name] = ModelType(return_type)
@@ -67,7 +79,7 @@ class Describer(metaclass=DescriberMeta):
         A small wrapper around field_permissions, handles inconsistencies of one class and a tuple of classes.
         """
         ret = {}
-        for field, permissions in cls.field_permissions.items():
+        for field, permissions in cls.retrieve_field_permissions.items():
             if not isinstance(permissions, (list, tuple)):
                 ret[field] = (permissions,)
             else:
@@ -75,33 +87,41 @@ class Describer(metaclass=DescriberMeta):
         return ret
 
     @classmethod
-    def get_listing_permissions(cls):
+    def get_permissions(cls, mode):
         """
         A small wrapper around listing_permissions, handles inconsistencies of one class and a tuple of classes.
         """
-        if not isinstance(cls.listing_permissions, (list, tuple)):
-            return cls.listing_permissions,
-        return cls.listing_permissions
+        permissions = None
+        if mode == Mode.LIST:
+            permissions = cls.list_permissions
+        elif mode == Mode.DETAIL:
+            permissions = cls.detail_permissions
 
-    @classmethod
-    def get_detail_permissions(cls):
-        """
-        A small wrapper around detail_permissions, handles inconsistencies of one class and a tuple of classes.
-        """
-        if not isinstance(cls.detail_permissions, (list, tuple)):
-            return cls.detail_permissions,
-        return cls.detail_permissions
+        if not isinstance(permissions, (list, tuple)):
+            return permissions,
+        return permissions
 
     model = None
 
-    only_fields = None
-    exclude_fields = None
-
-    extra_fields = {}
-
-    field_permissions = {}
-    listing_permissions = ()
-    detail_permissions = ()
-
     default_page_size = None
     max_page_size = None
+
+    enable_list = True
+    enable_detail = True
+    enable_create = True
+    enable_update = True
+    enable_delete = True
+
+    retrieve_only_fields = None
+    retrieve_exclude_fields = None
+    retrieve_extra_fields = {}
+    retrieve_field_permissions = {}
+
+    list_permissions = ()
+    detail_permissions = ()
+
+    create_only_fields = None
+    create_exclude_fields = None
+    create_extra_fields = {}
+    create_permissions = ()
+    create_fn = None

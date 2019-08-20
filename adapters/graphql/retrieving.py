@@ -6,6 +6,7 @@ from graphene_django_extras.settings import graphql_api_settings
 from adapters.graphql.converter import convert_local_fields
 from adapters.graphql.fields import DjangoObjectPermissionsField, DjangoNestableListObjectPermissionsField
 from datatypes import NullType, String, Integer, Float, Boolean
+from describers import Mode
 from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields
 
 
@@ -38,7 +39,7 @@ def create_type_class(describer):
         {
             "model": describer.model,
             "filter_fields": create_filter_fields(describer),
-            "only_fields": describer.determine_fields(),
+            "only_fields": describer.determine_fields(Mode.DETAIL),
         }
     )
 
@@ -48,7 +49,7 @@ def create_type_class(describer):
         {
             "Meta": type_meta,
             "get_list_type": lambda: type_list_class,
-            **convert_local_fields(describer.model, describer.determine_fields())
+            **convert_local_fields(describer.model, describer.determine_fields(Mode.DETAIL))
         }
     )
 
@@ -81,7 +82,7 @@ def create_filter_fields(describer):
     """
     filter_fields = {}
 
-    for field_name in describer.determine_fields():
+    for field_name in describer.determine_fields(Mode.LIST):
 
         # get the filters for each field based on their types
         field_type = _reverse_field_map.get(describer.model._meta.get_field(field_name).__class__, NullType)
@@ -99,17 +100,20 @@ def create_query_class(describer, type_classes):
     model_singular = model_singular_name(describer.model)
     model_plural = model_plural_name(describer.model)
 
+    attrs = {}
+
+    if describer.enable_list:
+        attrs[model_plural] = DjangoNestableListObjectPermissionsField(
+            type_classes[describer.model].get_list_type(), description="Multiple {} query.".format(model_plural))
+
+    if describer.enable_detail:
+        attrs[model_singular] = DjangoObjectPermissionsField(type_classes[describer.model],
+                                                             description="Single {} query.".format(model_singular))
+
     query_class = type(
         "Query",
         (Query,),
-        {
-            model_singular: DjangoObjectPermissionsField(type_classes[describer.model],
-                                                         description="Single {} query.".format(model_singular)),
-
-            model_plural: DjangoNestableListObjectPermissionsField(
-                type_classes[describer.model].get_list_type(),
-                description="Multiple {} query.".format(model_plural)),
-        }
+        attrs,
     )
 
     return query_class
@@ -119,17 +123,17 @@ def add_permissions_to_query_class(describer, query_class):
     """
     Adds permissions to the given Query class.
     """
-    if describer.listing_permissions:
+    if describer.enable_list and describer.get_permissions(Mode.LIST):
         field_name = "resolve_{}".format(model_plural_name(describer.model))
         setattr(query_class,
                 field_name,
-                create_permissions_check_method(permission_classes=describer.get_listing_permissions()))
+                create_permissions_check_method(permission_classes=describer.get_permissions(Mode.LIST)))
 
-    if describer.detail_permissions:
+    if describer.enable_detail and describer.get_permissions(Mode.DETAIL):
         field_name = "resolve_{}".format(model_singular_name(describer.model))
         setattr(query_class,
                 field_name,
-                create_permissions_check_method(permission_classes=describer.get_detail_permissions()))
+                create_permissions_check_method(permission_classes=describer.get_permissions(Mode.DETAIL)))
 
 
 def add_permissions_to_type_class(describer, type_class):
@@ -148,7 +152,7 @@ def add_extra_fields_to_type_class(adapter, describer, type_class):
     """
     existing_fields = field_names(get_all_model_fields(describer.model))
 
-    for field_name, return_type in describer.get_extra_fields().items():
+    for field_name, return_type in describer.get_extra_fields(Mode.DETAIL).items():
         if field_name in existing_fields:
             raise ValueError("This field already exists.")
 

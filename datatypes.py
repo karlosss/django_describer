@@ -94,7 +94,7 @@ class QuerySet(Type):
 
 class NullType(Type):
     """
-    Null object for types. convert() raises an exception. Useful for types with no filters.
+    Null object for types. convert() raises an exception. Useful when converting an unknown type for filters.
     """
 
     def convert(self, to, **kwargs):

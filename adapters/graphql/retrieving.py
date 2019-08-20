@@ -5,7 +5,6 @@ from graphene_django_extras.settings import graphql_api_settings
 
 from adapters.graphql.converter import convert_local_fields
 from adapters.graphql.fields import DjangoObjectPermissionsField, DjangoNestableListObjectPermissionsField
-from adapters.graphql.permissions import create_permissions_check_method
 from datatypes import NullType, String, Integer, Float, Boolean
 from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields
 
@@ -144,6 +143,9 @@ def add_permissions_to_type_class(describer, type_class):
 
 
 def add_extra_fields_to_type_class(adapter, describer, type_class):
+    """
+    Adds extra fields to the given DjangoObjectType class. Ensures no base fields get overwritten.
+    """
     existing_fields = field_names(get_all_model_fields(describer.model))
 
     for field_name, return_type in describer.get_extra_fields().items():
@@ -155,3 +157,22 @@ def add_extra_fields_to_type_class(adapter, describer, type_class):
 
 def create_global_query_class(query_classes):
     return type("Query", query_classes.values() + (graphene.ObjectType,), {})
+
+
+def create_permissions_check_method(field_name=None, permission_classes=()):
+    """
+    Generator of methods to check permissions for both ListFields and Fields.
+    """
+    def method(root, info, results=None, **kwargs):
+        for permission_class in permission_classes:
+            pc = permission_class(info.context, obj=root, qs=results)
+            if not pc.has_permission():
+                raise PermissionError(pc.error_message())
+
+        # return only for non-list Fields
+        if field_name and hasattr(root, field_name):
+            return getattr(root, field_name)
+
+    # necessary flag for ListFields
+    method.permissions_check = True
+    return method

@@ -1,6 +1,4 @@
-from django.db.models import Model
-
-from registry import Registry
+from utils import AttrDict
 
 
 class Type:
@@ -76,7 +74,7 @@ class ModelType(Type):
         return to.model_type(self, **kwargs)
 
 
-modeltype_registry = Registry(key_type=Model, value_type=ModelType)
+model_type_mapping = AttrDict()  # key: Model, value: ModelType
 
 
 class QuerySet(Type):
@@ -86,7 +84,7 @@ class QuerySet(Type):
 
     @property
     def type(self):
-        return modeltype_registry[self.of_type] or self.of_type
+        return model_type_mapping[self.of_type] or self.of_type
 
     def convert(self, to, **kwargs):
         return to.queryset_type(self, **kwargs)

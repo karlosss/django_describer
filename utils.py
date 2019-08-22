@@ -1,6 +1,20 @@
 from django.db.models import ManyToOneRel, ManyToManyRel
 
 
+class AttrDict(dict):
+    """
+    A dictionary with keys accessible as attributes
+    """
+    def __getattr__(self, item):
+        return self[item]
+
+    def keys(self):
+        return tuple(super().keys())
+
+    def values(self):
+        return tuple(super().values())
+
+
 def __reverse_fields(model, local_field_names):
     for name, attr in model.__dict__.items():
         # Don't duplicate any local fields
@@ -44,8 +58,11 @@ def field_names(field_tuple):
     return tuple(f[0] for f in field_tuple)
 
 
-def determine_fields(model, only_fields, exclude_fields):
-    all_fields = field_names(get_all_model_fields(model))
+def determine_fields(model, only_fields, exclude_fields, no_reverse=False):
+    if no_reverse:
+        all_fields = field_names(get_local_fields(model))
+    else:
+        all_fields = field_names(get_all_model_fields(model))
 
     if only_fields is None and exclude_fields is None:
         exclude_fields = ()
@@ -54,12 +71,16 @@ def determine_fields(model, only_fields, exclude_fields):
         raise ValueError("Cannot define both only_fields and exclude_fields.")
 
     if only_fields is not None:
+        if not isinstance(only_fields, (list, tuple)):
+            only_fields = only_fields,
         for field in only_fields:
             if field not in all_fields:
                 raise ValueError("Unknown field: {}.".format(field))
         return only_fields
 
     for field in exclude_fields:
+        if not isinstance(exclude_fields, (list, tuple)):
+            only_fields = only_fields,
         if field not in all_fields:
             raise ValueError("Unknown field: {}.".format(field))
     return tuple(f for f in all_fields if f not in exclude_fields)

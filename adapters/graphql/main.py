@@ -1,17 +1,15 @@
 import logging
 
 import graphene
-from django.db.models import Model
 from graphene.types.utils import get_field_as
-from graphene_django_extras import DjangoObjectType
 from graphene_django.views import GraphQLView
 
 from adapters.base import Adapter
 from adapters.graphql.fields import DjangoNestableListObjectPermissionsField
-from adapters.graphql.retrieving import Query, create_type_class, add_permissions_to_type_class, \
+from adapters.graphql.retrieving import create_type_class, add_permissions_to_type_class, \
     add_extra_fields_to_type_class, create_query_class, add_permissions_to_query_class, create_global_query_class
 from describers import get_describers
-from registry import Registry
+from utils import AttrDict
 
 
 class GraphQL(Adapter):
@@ -62,8 +60,8 @@ class GraphQL(Adapter):
 
         describers = get_describers()
 
-        self.type_classes = Registry(key_type=Model, value_type=DjangoObjectType)
-        self.query_classes = Registry(key_type=Model, value_type=Query)
+        self.type_classes = AttrDict()  # key: Model, value: DjangoObjectType
+        self.query_classes = AttrDict()  # key: Model, value: Query
 
         for describer in describers:
             # create a DjangoObjectType for the model

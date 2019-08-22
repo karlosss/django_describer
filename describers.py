@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from actions import Retrieve, CreateAction, ListDetailAction
+from actions import Retrieve, CreateAction, ListAction, DetailAction
 from datatypes import model_type_mapping, ModelType
 
 
@@ -29,13 +29,22 @@ class DescriberMeta(type):
             cls.retrieve = deepcopy(cls.retrieve)
             cls.retrieve.set_describer(cls)
 
+            cls._actions = []
+
             if cls.list_action is not None:
                 cls.list_action = deepcopy(cls.list_action)
                 cls.list_action.set_retrieve(cls.retrieve)
+                cls._actions.append(cls.list_action)
 
             if cls.detail_action is not None:
                 cls.detail_action = deepcopy(cls.detail_action)
                 cls.detail_action.set_retrieve(cls.retrieve)
+                cls._actions.append(cls.detail_action)
+
+            if cls.create_action is not None:
+                cls.create_action = deepcopy(cls.create_action)
+                cls.create_action.set_describer(cls)
+                cls._actions.append(cls.create_action)
 
         return cls
 
@@ -45,6 +54,10 @@ class Describer(metaclass=DescriberMeta):
     def is_abstract(cls):
         return cls.model is None
 
+    @classmethod
+    def get_actions(cls):
+        return cls._actions
+
     model = None
 
     default_page_size = None
@@ -52,5 +65,7 @@ class Describer(metaclass=DescriberMeta):
 
     retrieve = Retrieve()
 
-    list_action = ListDetailAction()
-    detail_action = ListDetailAction()
+    list_action = ListAction()
+    detail_action = DetailAction()
+
+    create_action = CreateAction()

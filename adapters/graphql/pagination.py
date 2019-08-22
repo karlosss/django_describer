@@ -6,6 +6,9 @@ from graphene_django_extras.paginations.utils import _nonzero_int
 
 class LimitOffsetOrderingGraphqlPagination(LimitOffsetGraphqlPagination):
     def paginate_queryset(self, qs, **kwargs):
+        """
+        The original method is not sorting when limit = None
+        """
         order = kwargs.pop(self.ordering_param, None) or self.ordering
 
         if order:

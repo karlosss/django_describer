@@ -92,7 +92,7 @@ class Retrieve(Action):
         return ret
 
 
-class ListDetailAction:
+class ListOrDetail:
     def __init__(self, permissions=()):
         self.permissions = permissions
         self._retrieve = None
@@ -106,6 +106,14 @@ class ListDetailAction:
         if item == "__setstate__":  # workaround of Python bug: deepcopy with __getattr__
             raise AttributeError
         return getattr(self._retrieve, item)
+
+
+class ListAction(ListOrDetail):
+    pass
+
+
+class DetailAction(ListOrDetail):
+    pass
 
 
 class CreateAction(Action):

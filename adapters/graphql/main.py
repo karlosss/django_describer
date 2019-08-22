@@ -6,6 +6,7 @@ from graphene_django.views import GraphQLView
 
 from adapters.base import Adapter
 from adapters.graphql.fields import DjangoNestableListObjectPermissionsField
+from adapters.graphql.modifying import create_mutation_classes_for_describer, create_global_mutation_class
 from adapters.graphql.retrieving import create_type_class, add_permissions_to_type_class, \
     add_extra_fields_to_type_class, create_query_class, add_permissions_to_query_class, create_global_query_class
 from describers import get_describers
@@ -62,6 +63,7 @@ class GraphQL(Adapter):
 
         self.type_classes = AttrDict()  # key: Model, value: DjangoObjectType
         self.query_classes = AttrDict()  # key: Model, value: Query
+        self.mutation_classes = AttrDict()  # key: Model, value: Mutation
 
         for describer in describers:
             # create a DjangoObjectType for the model
@@ -80,8 +82,14 @@ class GraphQL(Adapter):
             # add permissions to each Query class (listing, detail)
             add_permissions_to_query_class(describer, self.query_classes[describer.model])
 
+            # create mutation classes for the describer
+            self.mutation_classes[describer.model] = create_mutation_classes_for_describer(describer)
+
         # create GraphQL schema
-        schema = graphene.Schema(query=create_global_query_class(self.query_classes))
+        schema = graphene.Schema(
+            query=create_global_query_class(self.query_classes),
+            mutation=create_global_mutation_class(self.mutation_classes)
+        )
 
         # create GraphQL view
         return GraphQLView.as_view(graphiql=True, schema=schema)

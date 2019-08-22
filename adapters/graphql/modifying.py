@@ -30,6 +30,11 @@ def create_mutate_method(action):
     fn = action.fn or create_default_fn(action.__class__, action._describer.model)
     @classmethod
     def mutate(cls, root, info, *args, **kwargs):
+        for permission_class in action.get_permissions():
+            pc = permission_class(info.context, data=kwargs["data"])
+            if not pc.has_permission():
+                raise PermissionError(pc.error_message())
+
         object = fn(info.context, kwargs["data"])
 
         return {

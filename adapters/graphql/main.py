@@ -1,6 +1,7 @@
 import logging
 
 import graphene
+from graphene import Field
 from graphene.types.utils import get_field_as
 from graphene_django.views import GraphQLView
 
@@ -9,8 +10,11 @@ from adapters.graphql.fields import DjangoNestableListObjectPermissionsField
 from adapters.graphql.modifying import create_mutation_classes_for_describer, create_global_mutation_class
 from adapters.graphql.retrieving import create_type_class, add_permissions_to_type_class, \
     add_extra_fields_to_type_class, create_query_class, add_permissions_to_query_class, create_global_query_class
+from datatypes import get_instantiated_type
 from describers import get_describers
 from utils import AttrDict
+
+create_class = type
 
 
 class GraphQL(Adapter):
@@ -18,22 +22,24 @@ class GraphQL(Adapter):
         """
         A helper for converting primitive types to Graphene.
         """
+        if "input" in kwargs and kwargs["input"]:
+            return get_field_as(type, _as=graphene.InputField)
         return get_field_as(type, _as=graphene.Field)
 
     def string_type(self, type, **kwargs):
-        return self._convert_primitive_type(graphene.types.String(), **kwargs)
+        return self._convert_primitive_type(graphene.types.String(required=type.kwargs["required"]), **kwargs)
 
     def integer_type(self, type, **kwargs):
-        return self._convert_primitive_type(graphene.types.Int(), **kwargs)
+        return self._convert_primitive_type(graphene.types.Int(required=type.kwargs["required"]), **kwargs)
 
     def float_type(self, type, **kwargs):
-        return self._convert_primitive_type(graphene.types.Float(), **kwargs)
+        return self._convert_primitive_type(graphene.types.Float(required=type.kwargs["required"]), **kwargs)
 
     def id_type(self, type, **kwargs):
-        return self._convert_primitive_type(graphene.types.ID(), **kwargs)
+        return self._convert_primitive_type(graphene.types.ID(required=type.kwargs["required"]), **kwargs)
 
     def boolean_type(self, type, **kwargs):
-        return self._convert_primitive_type(graphene.types.Boolean(), **kwargs)
+        return self._convert_primitive_type(graphene.types.Boolean(required=type.kwargs["required"]), **kwargs)
 
     def queryset_type(self, type, **kwargs):
         """
@@ -54,6 +60,18 @@ class GraphQL(Adapter):
             return self.type_classes[type.model].get_list_type()
 
         return graphene.Dynamic(lambda: graphene.Field(self.type_classes[type.model]))
+
+    def composite_type(self, type, **kwargs):
+        attrs = {}
+        for name, return_type in type.field_map.items():
+            attrs[name] = get_instantiated_type(return_type).convert(self)
+
+        type_class = create_class(
+            "ObjectType",
+            (graphene.ObjectType,),
+            attrs
+        )
+        return Field(type_class)
 
     def generate(self):
         # silence GraphQL exception logger
@@ -82,8 +100,8 @@ class GraphQL(Adapter):
             # add permissions to each Query class (listing, detail)
             add_permissions_to_query_class(describer, self.query_classes[describer.model])
 
-            # create mutation classes for the describer
-            self.mutation_classes[describer.model] = create_mutation_classes_for_describer(describer)
+            # create mutation classes for the describer, including permissions and extra fields
+            self.mutation_classes[describer.model] = create_mutation_classes_for_describer(self, describer)
 
         # create GraphQL schema
         schema = graphene.Schema(

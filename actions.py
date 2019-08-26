@@ -1,9 +1,6 @@
 from enum import Enum
-from inspect import isclass
 
-from django.db.models import Model
-
-from datatypes import ModelType
+from datatypes import get_instantiated_type, Boolean
 from utils import determine_fields
 
 
@@ -19,13 +16,14 @@ class ActionName(Enum):
 
 class Action:
     def __init__(self, read_only=False, only_fields=None, exclude_fields=None,
-                 extra_fields=None, permissions=(), fn=None):
+                 extra_fields=None, permissions=(), fn=None, return_params=None):
         self.extra_fields = extra_fields if extra_fields is not None else {}
         self.only_fields = only_fields
         self.exclude_fields = exclude_fields
         self.permissions = permissions
         self.fn = fn
         self.read_only = read_only
+        self.return_params = return_params
 
         self._describer = None
         self._name = None
@@ -51,13 +49,7 @@ class Action:
         """
         ret = {}
         for name, return_type in self.extra_fields.items():
-            if isclass(return_type):
-                if issubclass(return_type, Model):
-                    ret[name] = ModelType(return_type)
-                else:
-                    ret[name] = return_type()
-            else:
-                ret[name] = return_type
+            ret[name] = get_instantiated_type(return_type)
         return ret
 
     def get_permissions(self):
@@ -68,6 +60,18 @@ class Action:
         if not isinstance(self.permissions, (list, tuple)):
             return self.permissions,
         return self.permissions
+
+    def get_return_params(self):
+        """
+        A hook which can be used to provide a default value in subclasses.
+        """
+        return self.return_params
+
+    def get_fn(self):
+        """
+        A hook which can be used to provide a default value in subclasses.
+        """
+        return self.fn
 
 
 class Retrieve(Action):
@@ -117,9 +121,10 @@ class DetailAction(ListOrDetail):
 
 
 class CreateAction(Action):
-    def __init__(self, only_fields=None, exclude_fields=None, extra_fields=None, permissions=(), fn=None):
+    def __init__(self, only_fields=None, exclude_fields=None, extra_fields=None, permissions=(), fn=None,
+                 return_params=None):
         super().__init__(only_fields=only_fields, exclude_fields=exclude_fields, extra_fields=extra_fields,
-                         permissions=permissions, fn=fn)
+                         permissions=permissions, fn=fn, return_params=return_params)
         self._name = ActionName.CREATE.name
 
     def determine_fields(self):
@@ -128,3 +133,17 @@ class CreateAction(Action):
         # remove id from the fields
         filtered_fields = tuple(f for f in fields if f != "id")
         return filtered_fields
+
+    def get_return_params(self):
+        return super().get_return_params() or {"object": self._describer.model, "ok": Boolean}
+
+    def get_fn(self):
+        super_fn = super().get_fn()
+        if super_fn is not None:
+            return super_fn
+
+        def fn(request, instance, data):
+            obj = self._describer.model(**data)
+            obj.save()
+            return {"object": obj, "ok": True}
+        return fn

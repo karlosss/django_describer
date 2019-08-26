@@ -1,9 +1,12 @@
+from inspect import isclass
+
 from utils import AttrDict
 
 
 class Type:
-    def __init__(self, **kwargs):
+    def __init__(self, required=True, **kwargs):
         self.kwargs = kwargs
+        self.kwargs["required"] = required
 
     def convert(self, to, **kwargs):
         raise NotImplementedError
@@ -97,3 +100,24 @@ class NullType(Type):
 
     def convert(self, to, **kwargs):
         raise ValueError("Trying to convert NullType.")
+
+
+class CompositeType(Type):
+    """
+    Technically, this is an Object type without Django model.
+    """
+
+    def __init__(self, field_map, **kwargs):
+        super().__init__(**kwargs)
+        self.field_map = field_map
+
+    def convert(self, to, **kwargs):
+        return to.composite_type(self, **kwargs)
+
+
+def get_instantiated_type(maybe_type):
+    if maybe_type in model_type_mapping:
+        return model_type_mapping[maybe_type]
+    if isclass(maybe_type):
+        return maybe_type()
+    return maybe_type

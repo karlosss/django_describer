@@ -24,5 +24,8 @@ class Adapter:
     def model_type(self, type, **kwargs):
         raise NotImplementedError
 
+    def composite_type(self, type, **kwargs):
+        raise NotImplementedError
+
     def generate(self, **kwargs):
         raise NotImplementedError

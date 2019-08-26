@@ -92,3 +92,10 @@ def model_plural_name(model):
 
 def model_singular_name(model):
     return str(model._meta.verbose_name)
+
+
+def get_object_or_none(model, pk):
+    qs = model.objects.filter(pk=pk)
+    if not qs.exists():
+        return None
+    return qs.get()

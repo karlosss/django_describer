@@ -147,3 +147,57 @@ class CreateAction(Action):
             obj.save()
             return {"object": obj, "ok": True}
         return fn
+
+
+class UpdateAction(Action):
+    def __init__(self, only_fields=None, exclude_fields=None, extra_fields=None, permissions=(), fn=None,
+                 return_params=None):
+        super().__init__(only_fields=only_fields, exclude_fields=exclude_fields, extra_fields=extra_fields,
+                         permissions=permissions, fn=fn, return_params=return_params)
+        self._name = ActionName.UPDATE.name
+
+    def determine_fields(self):
+        fields = super().determine_fields()
+
+        # add id to the fields
+        if "id" not in fields:
+            return fields + ("id",)
+        return fields
+
+    def get_return_params(self):
+        return super().get_return_params() or {"object": self._describer.model, "ok": Boolean}
+
+    def get_fn(self):
+        super_fn = super().get_fn()
+        if super_fn is not None:
+            return super_fn
+
+        def fn(request, instance, data):
+            for k, v in data.items():
+                setattr(instance, k, v)
+            instance.save()
+            return {"object": instance, "ok": True}
+        return fn
+
+
+class DeleteAction(Action):
+    def __init__(self, extra_fields=None, permissions=(), fn=None, return_params=None):
+        super().__init__(only_fields=None, exclude_fields=None, extra_fields=extra_fields,
+                         permissions=permissions, fn=fn, return_params=return_params)
+        self._name = ActionName.DELETE.name
+
+    def determine_fields(self):
+        return "id",
+
+    def get_return_params(self):
+        return super().get_return_params() or {"object": self._describer.model, "ok": Boolean}
+
+    def get_fn(self):
+        super_fn = super().get_fn()
+        if super_fn is not None:
+            return super_fn
+
+        def fn(request, instance, data):
+            instance.delete()
+            return {"object": instance, "ok": True}
+        return fn

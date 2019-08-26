@@ -3,6 +3,7 @@ from graphene import ObjectType, Boolean
 from graphene_django_extras import DjangoInputObjectType
 
 from datatypes import get_instantiated_type
+from utils import get_object_or_none
 
 
 def create_mutation_classes_for_describer(adapter, describer):
@@ -21,12 +22,16 @@ def create_mutate_method(action):
     fn = action.get_fn()
     @classmethod
     def mutate(cls, root, info, *args, **kwargs):
+        obj = None
+        if "id" in kwargs["data"]:
+            obj = get_object_or_none(action._describer.model, kwargs["data"]["id"])
+
         for permission_class in action.get_permissions():
-            pc = permission_class(info.context, obj=root, data=kwargs["data"])
+            pc = permission_class(info.context, obj=obj, data=kwargs["data"])
             if not pc.has_permission():
                 raise PermissionError(pc.error_message())
 
-        return fn(info.context, root, kwargs["data"])
+        return fn(info.context, obj, kwargs["data"])
 
     return mutate
 
@@ -45,6 +50,7 @@ def create_mutation_class(adapter, action):
         {
             "model": action._describer.model,
             "only_fields": action.determine_fields(),
+            "input_for": action._name,
         }
     )
 

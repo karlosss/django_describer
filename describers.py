@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from actions import Retrieve, CreateAction, ListAction, DetailAction
+from actions import Retrieve, CreateAction, ListAction, DetailAction, UpdateAction, DeleteAction
 from datatypes import model_type_mapping, ModelType
 
 
@@ -46,6 +46,16 @@ class DescriberMeta(type):
                 cls.create_action.set_describer(cls)
                 cls._actions.append(cls.create_action)
 
+            if cls.update_action is not None:
+                cls.update_action = deepcopy(cls.update_action)
+                cls.update_action.set_describer(cls)
+                cls._actions.append(cls.update_action)
+
+            if cls.delete_action is not None:
+                cls.delete_action = deepcopy(cls.delete_action)
+                cls.delete_action.set_describer(cls)
+                cls._actions.append(cls.delete_action)
+
         return cls
 
 
@@ -69,3 +79,5 @@ class Describer(metaclass=DescriberMeta):
     detail_action = DetailAction()
 
     create_action = CreateAction()
+    update_action = UpdateAction()
+    delete_action = DeleteAction()

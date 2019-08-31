@@ -3,11 +3,10 @@ import graphene
 from graphene_django_extras import DjangoObjectType, DjangoListObjectType
 from graphene_django_extras.settings import graphql_api_settings
 
-from adapters.graphql.converter import convert_local_fields
-from adapters.graphql.fields import DjangoObjectPermissionsField, DjangoNestableListObjectPermissionsField
-from adapters.graphql.pagination import LimitOffsetOrderingGraphqlPagination
-from datatypes import NullType, String, Integer, Float, Boolean
-from utils import model_singular_name, model_plural_name, field_names, get_all_model_fields
+from ...datatypes import String, Integer, Float, Boolean, NullType
+from .converter import convert_local_fields
+from .pagination import LimitOffsetOrderingGraphqlPagination
+from ...utils import field_names, get_all_model_fields
 
 
 # mapping of alien types to django_describer ones
@@ -39,7 +38,7 @@ def create_type_class(describer):
         {
             "model": describer.model,
             "filter_fields": create_filter_fields(describer),
-            "only_fields": describer.retrieve.determine_fields(),
+            "only_fields": describer.get_fields(),
         }
     )
 
@@ -49,7 +48,7 @@ def create_type_class(describer):
         {
             "Meta": type_meta,
             "get_list_type": lambda: type_list_class,
-            **convert_local_fields(describer.model, describer.retrieve.determine_fields())
+            **convert_local_fields(describer.model, describer.get_fields())
         }
     )
 
@@ -81,8 +80,9 @@ def create_filter_fields(describer):
     Creates dictionary of filters based on field types.
     """
     filter_fields = {}
+    field_names = (f.name for f in describer.model._meta.fields)
 
-    for field_name in describer.retrieve.determine_fields():
+    for field_name in field_names:
 
         # get the filters for each field based on their types
         field_type = _reverse_field_map.get(describer.model._meta.get_field(field_name).__class__, NullType)
@@ -93,22 +93,23 @@ def create_filter_fields(describer):
     return filter_fields
 
 
-def create_query_class(describer, type_classes):
+def create_query_class(adapter, describer):
     """
     Creates a Query class for a type, featuring listing and detail methods.
     """
-    model_singular = model_singular_name(describer.model)
-    model_plural = model_plural_name(describer.model)
 
     attrs = {}
 
-    if describer.list_action is not None:
-        attrs[model_plural] = DjangoNestableListObjectPermissionsField(
-            type_classes[describer.model].get_list_type(), description="Multiple {} query.".format(model_plural))
+    for action in describer.get_actions():
+        if not action.read_only:
+            continue
 
-    if describer.detail_action is not None:
-        attrs[model_singular] = DjangoObjectPermissionsField(type_classes[describer.model],
-                                                             description="Single {} query.".format(model_singular))
+        name = "{}_{}".format(action._describer.model.__name__, action._name)
+
+        attrs[name] = action.convert(adapter)
+
+        if action.permissions:
+            attrs["resolve_{}".format(name)] = create_permissions_check_method(permission_classes=action.permissions)
 
     query_class = type(
         "Query",
@@ -119,28 +120,11 @@ def create_query_class(describer, type_classes):
     return query_class
 
 
-def add_permissions_to_query_class(describer, query_class):
-    """
-    Adds permissions to the given Query class.
-    """
-    if describer.list_action is not None and describer.list_action.get_permissions():
-        field_name = "resolve_{}".format(model_plural_name(describer.model))
-        setattr(query_class,
-                field_name,
-                create_permissions_check_method(permission_classes=describer.list_action.get_permissions()))
-
-    if describer.detail_action is not None and describer.detail_action.get_permissions():
-        field_name = "resolve_{}".format(model_singular_name(describer.model))
-        setattr(query_class,
-                field_name,
-                create_permissions_check_method(permission_classes=describer.detail_action.get_permissions()))
-
-
 def add_permissions_to_type_class(describer, type_class):
     """
     Adds permissions to the given DjangoObjectType class.
     """
-    for field_name, permission_classes in describer.retrieve.get_field_permissions().items():
+    for field_name, permission_classes in describer.get_field_permissions().items():
         setattr(type_class,
                 "resolve_{}".format(field_name),
                 create_permissions_check_method(field_name, permission_classes))
@@ -152,7 +136,7 @@ def add_extra_fields_to_type_class(adapter, describer, type_class):
     """
     existing_fields = field_names(get_all_model_fields(describer.model))
 
-    for field_name, return_type in describer.retrieve.get_extra_fields().items():
+    for field_name, return_type in describer.get_extra_fields().items():
         if field_name in existing_fields:
             raise ValueError("This field already exists.")
 

@@ -5,14 +5,14 @@ from graphene import Field
 from graphene.types.utils import get_field_as
 from graphene_django.views import GraphQLView
 
-from adapters.base import Adapter
-from adapters.graphql.fields import DjangoNestableListObjectPermissionsField
-from adapters.graphql.modifying import create_mutation_classes_for_describer, create_global_mutation_class
-from adapters.graphql.retrieving import create_type_class, add_permissions_to_type_class, \
-    add_extra_fields_to_type_class, create_query_class, add_permissions_to_query_class, create_global_query_class
-from datatypes import get_instantiated_type
-from describers import get_describers
-from utils import AttrDict
+from ..base import Adapter
+from .fields import DjangoNestableListObjectPermissionsField, DjangoObjectPermissionsField
+from ...datatypes import get_instantiated_type
+from ...describers import get_describers
+from ...utils import AttrDict
+from .retrieving import create_type_class, add_extra_fields_to_type_class, add_permissions_to_type_class, \
+    create_query_class, create_global_query_class
+from .modifying import create_mutation_classes_for_describer, create_global_mutation_class
 
 create_class = type
 
@@ -73,6 +73,14 @@ class GraphQL(Adapter):
         )
         return Field(type_class)
 
+    def list_action(self, action, **kwargs):
+        return DjangoNestableListObjectPermissionsField(
+            self.type_classes[action._describer.model].get_list_type(), fetch_fn=action.get_fetch_fn())
+
+    def detail_action(self, action, **kwargs):
+        return DjangoObjectPermissionsField(self.type_classes[action._describer.model], fetch_fn=action.get_fetch_fn(),
+                                            id_arg=action.id_arg)
+
     def generate(self):
         # silence GraphQL exception logger
         logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
@@ -95,10 +103,7 @@ class GraphQL(Adapter):
 
         for describer in describers:
             # create a Query class for each model (need to create all of them first)
-            self.query_classes[describer.model] = create_query_class(describer, self.type_classes)
-
-            # add permissions to each Query class (listing, detail)
-            add_permissions_to_query_class(describer, self.query_classes[describer.model])
+            self.query_classes[describer.model] = create_query_class(self, describer)
 
             # create mutation classes for the describer, including permissions and extra fields
             self.mutation_classes[describer.model] = create_mutation_classes_for_describer(self, describer)

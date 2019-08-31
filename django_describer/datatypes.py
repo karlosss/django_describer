@@ -1,7 +1,5 @@
 from inspect import isclass
 
-from utils import AttrDict
-
 
 class Type:
     def __init__(self, required=True, **kwargs):
@@ -77,7 +75,7 @@ class ModelType(Type):
         return to.model_type(self, **kwargs)
 
 
-model_type_mapping = AttrDict()  # key: Model, value: ModelType
+model_type_mapping = {}  # key: Model, value: ModelType
 
 
 class QuerySet(Type):

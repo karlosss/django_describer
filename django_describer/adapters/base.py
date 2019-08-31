@@ -27,5 +27,11 @@ class Adapter:
     def composite_type(self, type, **kwargs):
         raise NotImplementedError
 
+    def list_action(self, action, **kwargs):
+        raise NotImplementedError
+
+    def detail_action(self, action, **kwargs):
+        raise NotImplementedError
+
     def generate(self, **kwargs):
         raise NotImplementedError

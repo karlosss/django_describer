@@ -1,5 +1,5 @@
 import graphene
-from graphene import Argument
+from graphene import Argument, ID
 from graphene_django.utils import maybe_queryset, is_valid_django_model
 from graphene_django_extras import DjangoFilterListField, DjangoListObjectField, DjangoObjectField
 from graphene_django_extras.base_types import DjangoListObjectBase
@@ -74,12 +74,15 @@ class DjangoNestableListObjectField(DjangoListObjectField):
     Also, it can fetch queryset by property.
     """
 
-    def __init__(self, _type, *args, property_name=None, **kwargs):
+    def __init__(self, _type, *args, fetch_fn=None, property_name=None, **kwargs):
         super().__init__(_type, *args, **kwargs)
         self.property_name = property_name
+        self.fetch_fn = fetch_fn
 
     def list_resolver(self, manager, filterset_class, filtering_args, root, info, **kwargs):
-        if self.property_name is not None and root and is_valid_django_model(root._meta.model):
+        if self.fetch_fn is not None:
+            qs = self.fetch_fn(info.context)
+        elif self.property_name is not None and root and is_valid_django_model(root._meta.model):
             qs = getattr(root, self.property_name)
         else:
             qs = queryset_factory(manager, info.field_asts, info.fragments, **kwargs)
@@ -102,9 +105,28 @@ class DjangoNestableListObjectField(DjangoListObjectField):
         )
 
 
-class DjangoNestableListObjectPermissionsField(PermissionsCheckMixin, DjangoNestableListObjectField):
+class DjangoCustomObjectField(DjangoObjectField):
+    def __init__(self, _type, *args, fetch_fn=None, id_arg=True, **kwargs):
+        if id_arg:
+            kwargs["id"] = ID(
+                required=True, description="Django object unique identification field"
+            )
+
+        self.fetch_fn = fetch_fn
+        super(DjangoObjectField, self).__init__(_type, *args, **kwargs)
+
+    def object_resolver(self, manager, root, info, **kwargs):
+        if self.fetch_fn is not None:
+            pk = kwargs.get("id", None)
+            if pk is not None:
+                pk = int(pk)
+            return self.fetch_fn(info.context, pk)
+        return super().object_resolver(manager, root, info, **kwargs)
+
+
+class DjangoObjectPermissionsField(PermissionsCheckMixin, DjangoCustomObjectField):
     pass
 
 
-class DjangoObjectPermissionsField(PermissionsCheckMixin, DjangoObjectField):
+class DjangoNestableListObjectPermissionsField(PermissionsCheckMixin, DjangoNestableListObjectField):
     pass

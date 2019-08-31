@@ -1,7 +1,8 @@
 from copy import deepcopy
 
-from actions import Retrieve, CreateAction, ListAction, DetailAction, UpdateAction, DeleteAction
-from datatypes import model_type_mapping, ModelType
+from .datatypes import model_type_mapping, ModelType
+from .utils import determine_fields, ensure_tuple, build_field_permissions, build_extra_fields
+from .actions import ListAction, DetailAction, ActionName, CreateAction, UpdateAction, DeleteAction
 
 
 def get_describers():
@@ -25,36 +26,48 @@ class DescriberMeta(type):
             # save the describer
             DescriberMeta.all_describers[cls.model] = cls
 
-            # add own copy of each container into the describer and inject information to them
-            cls.retrieve = deepcopy(cls.retrieve)
-            cls.retrieve.set_describer(cls)
+            cls._fields = determine_fields(cls.model, ensure_tuple(cls.only_fields), ensure_tuple(cls.exclude_fields))
+            cls._field_permissions = build_field_permissions(cls.field_permissions)
+            cls._extra_fields = build_extra_fields(cls.extra_fields)
 
             cls._actions = []
 
             if cls.list_action is not None:
                 cls.list_action = deepcopy(cls.list_action)
-                cls.list_action.set_retrieve(cls.retrieve)
+                cls.list_action.set_describer(cls)
+                cls.list_action.set_name(ActionName.LIST.name)
                 cls._actions.append(cls.list_action)
 
             if cls.detail_action is not None:
                 cls.detail_action = deepcopy(cls.detail_action)
-                cls.detail_action.set_retrieve(cls.retrieve)
+                cls.detail_action.set_describer(cls)
+                cls.detail_action.set_name(ActionName.DETAIL.name)
                 cls._actions.append(cls.detail_action)
 
             if cls.create_action is not None:
                 cls.create_action = deepcopy(cls.create_action)
                 cls.create_action.set_describer(cls)
+                cls.create_action.set_name(ActionName.CREATE.name)
                 cls._actions.append(cls.create_action)
 
             if cls.update_action is not None:
                 cls.update_action = deepcopy(cls.update_action)
                 cls.update_action.set_describer(cls)
+                cls.update_action.set_name(ActionName.UPDATE.name)
                 cls._actions.append(cls.update_action)
 
             if cls.delete_action is not None:
                 cls.delete_action = deepcopy(cls.delete_action)
                 cls.delete_action.set_describer(cls)
+                cls.delete_action.set_name(ActionName.DELETE.name)
                 cls._actions.append(cls.delete_action)
+
+            for name, action in cls.extra_actions.items():
+                if name in ActionName.values():
+                    raise ValueError("`{}` is a reserved action name.".format(name))
+                action.set_describer(cls)
+                action.set_name(name)
+                cls._actions.append(action)
 
         return cls
 
@@ -65,15 +78,30 @@ class Describer(metaclass=DescriberMeta):
         return cls.model is None
 
     @classmethod
+    def get_fields(cls):
+        return cls._fields
+
+    @classmethod
+    def get_field_permissions(cls):
+        return cls._field_permissions
+
+    @classmethod
     def get_actions(cls):
         return cls._actions
 
+    @classmethod
+    def get_extra_fields(cls):
+        return cls._extra_fields
+
     model = None
+
+    only_fields = None
+    exclude_fields = None
+    extra_fields = None
+    field_permissions = None
 
     default_page_size = None
     max_page_size = None
-
-    retrieve = Retrieve()
 
     list_action = ListAction()
     detail_action = DetailAction()
@@ -81,3 +109,5 @@ class Describer(metaclass=DescriberMeta):
     create_action = CreateAction()
     update_action = UpdateAction()
     delete_action = DeleteAction()
+
+    extra_actions = {}

@@ -1,6 +1,6 @@
 from django.utils.translation import ugettext_lazy as _
 
-from utils import AttrDict
+from .utils import AttrDict
 
 
 class Permission:

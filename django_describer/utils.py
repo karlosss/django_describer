@@ -1,5 +1,7 @@
 from django.db.models import ManyToOneRel, ManyToManyRel
 
+from .datatypes import get_instantiated_type
+
 
 class AttrDict(dict):
     """
@@ -67,6 +69,9 @@ def determine_fields(model, only_fields, exclude_fields, no_reverse=False):
     if only_fields is None and exclude_fields is None:
         exclude_fields = ()
 
+    if only_fields == tuple() and exclude_fields == tuple():
+        only_fields = None
+
     if only_fields is not None and exclude_fields is not None:
         raise ValueError("Cannot define both only_fields and exclude_fields.")
 
@@ -99,3 +104,43 @@ def get_object_or_none(model, pk):
     if not qs.exists():
         return None
     return qs.get()
+
+
+def get_object_or_raise(model, pk):
+    qs = model.objects.filter(pk=pk)
+    if not qs.exists():
+        raise ValueError("`{}` with pk={} does not exist.".format(model, pk))
+    return qs.get()
+
+
+def ensure_tuple(maybe_tuple):
+    if maybe_tuple is None:
+        return tuple()
+    return tuple(maybe_tuple) if isinstance(maybe_tuple, (list, tuple)) else maybe_tuple,
+
+
+def build_extra_fields(extra_fields):
+    if extra_fields is None:
+        return {}
+    ret = {}
+    for name, return_type in extra_fields.items():
+        ret[name] = get_instantiated_type(return_type)
+    return ret
+
+
+def build_field_permissions(field_permissions):
+    if field_permissions is None:
+        return {}
+    ret = {}
+    for field, permissions in field_permissions.items():
+        if not isinstance(permissions, (list, tuple)):
+            ret[field] = (permissions,)
+        else:
+            ret[field] = tuple(permissions)
+    return ret
+
+
+def set_param_if_unset(obj, param, value):
+    if hasattr(obj, param) and getattr(obj, param) is not None:
+        raise ValueError("`{}` is already set.".format(param))
+    setattr(obj, param, value)

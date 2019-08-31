@@ -1,0 +1,2 @@
+import django_describer.adapters.base
+import django_describer.adapters.graphql

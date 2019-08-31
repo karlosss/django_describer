@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="django_describer",
-    version="0.0.1",
+    version="0.0.2",
     author="Karel Jilek",
     author_email="los.karlosss@gmail.com",
     description="A tool for automated generation of several APIs from a Django webapp.",
@@ -17,6 +17,13 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+    ],
+    install_requires=[
+        "django",
+        "django-filter",
+        "graphene",
+        "graphene-django",
+        "graphene-django-extras",
     ],
     python_requires='>=3.6',
 )

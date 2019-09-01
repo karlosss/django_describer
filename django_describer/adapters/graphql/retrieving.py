@@ -3,7 +3,7 @@ import graphene
 from graphene_django_extras import DjangoObjectType, DjangoListObjectType
 from graphene_django_extras.settings import graphql_api_settings
 
-from ...datatypes import String, Integer, Float, Boolean, NullType
+from ...datatypes import String, Integer, Float, Boolean, NullType, get_instantiated_type
 from .converter import convert_local_fields
 from .pagination import LimitOffsetOrderingGraphqlPagination
 from ...utils import field_names, get_all_model_fields
@@ -140,7 +140,8 @@ def add_extra_fields_to_type_class(adapter, describer, type_class):
         if field_name in existing_fields:
             raise ValueError("This field already exists.")
 
-        type_class._meta.fields[field_name] = return_type.convert(adapter, property_name=field_name)
+        type_class._meta.fields[field_name] = get_instantiated_type(return_type).convert(
+            adapter, property_name=field_name)
 
 
 def create_global_query_class(query_classes):

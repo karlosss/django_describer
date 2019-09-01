@@ -2,6 +2,8 @@ import graphene
 from graphene import ObjectType
 from graphene_django_extras import DjangoInputObjectType
 
+from django_describer.datatypes import get_instantiated_type
+
 
 def create_mutation_classes_for_describer(adapter, describer):
     mutation_classes = []
@@ -38,7 +40,7 @@ def create_mutate_method(action, has_model=True):
 def create_return_fields(adapter, action):
     ret = {}
     for name, type in action.get_return_fields().items():
-        ret[name] = type.convert(adapter)
+        ret[name] = get_instantiated_type(type).convert(adapter)
     return ret
 
 
@@ -66,9 +68,9 @@ def create_mutation_class(adapter, action, has_model=True):
         for name, return_type in action.extra_fields.items():
             if name in input_class._meta.input_fields:
                 raise ValueError("Duplicate field: `{}`".format(name))
-            input_class._meta.input_fields[name] = return_type.convert(adapter, input=True)
+            input_class._meta.input_fields[name] = get_instantiated_type(return_type).convert(adapter, input=True)
     else:
-        input_class = action.input_type.convert(adapter, input=True)
+        input_class = get_instantiated_type(action.input_type).convert(adapter, input=True)
 
     arguments_class = type(
         "Arguments",

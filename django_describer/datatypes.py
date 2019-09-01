@@ -107,7 +107,7 @@ class CompositeType(Type):
 
     def __init__(self, field_map, **kwargs):
         super().__init__(**kwargs)
-        self.field_map = field_map
+        self.field_map = field_map  # key: field name, value: field type
 
     def convert(self, to, **kwargs):
         return to.composite_type(self, **kwargs)

@@ -1,7 +1,6 @@
 import logging
 
 import graphene
-from graphene import Field
 from graphene.types.utils import get_field_as
 from graphene_django.views import GraphQLView
 
@@ -46,6 +45,9 @@ class GraphQL(Adapter):
         Returns a field for listing. If the data shall be fetched from a queryset returned by its property,
         the property name is passed via kwargs.
         """
+        if "input" in kwargs and kwargs["input"]:
+            raise ValueError("Cannot convert QuerySet as input parameter.")
+
         property_name = kwargs.get("property_name", None)
 
         return graphene.Dynamic(lambda: DjangoNestableListObjectPermissionsField(
@@ -59,19 +61,29 @@ class GraphQL(Adapter):
         if "list" in kwargs and kwargs["list"]:
             return self.type_classes[type.model].get_list_type()
 
+        if "input" in kwargs and kwargs["input"]:
+            raise ValueError("Cannot convert ModelType as input parameter.")
+
         return graphene.Dynamic(lambda: graphene.Field(self.type_classes[type.model]))
 
     def composite_type(self, type, **kwargs):
         attrs = {}
         for name, return_type in type.field_map.items():
-            attrs[name] = get_instantiated_type(return_type).convert(self)
+            attrs[name] = get_instantiated_type(return_type).convert(self, input="input" in kwargs and kwargs["input"])
+
+        if "input" in kwargs and kwargs["input"]:
+            return create_class(
+                "Input",
+                (graphene.InputObjectType,),
+                attrs,
+            )
 
         type_class = create_class(
             "ObjectType",
             (graphene.ObjectType,),
             attrs
         )
-        return Field(type_class)
+        return graphene.Field(type_class)
 
     def list_action(self, action, **kwargs):
         return DjangoNestableListObjectPermissionsField(

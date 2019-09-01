@@ -17,6 +17,7 @@ class ActionName(Enum):
 
 class BaseAction:
     read_only = False
+    has_model = True
 
     def __init__(self, permissions=None):
         self.permissions = ensure_tuple(permissions)
@@ -100,7 +101,7 @@ class ModifyAction(BaseAction):
 
 class CreateAction(ModifyAction):
     def get_default_exec_fn(self):
-        def fn(request, instance, data):
+        def fn(request, data):
             obj = self._describer.model(**data)
             obj.save()
             return {"object": obj}
@@ -175,3 +176,20 @@ class DeleteAction(FetchModifyAction):
 
     def convert(self, to, **kwargs):
         return to.delete_action(self, **kwargs)
+
+
+class CustomAction(ModifyAction):
+    has_model = False
+
+    def __init__(self, input_type, return_fields, exec_fn, permissions=None):
+        super().__init__(permissions=permissions, exec_fn=exec_fn, return_fields=return_fields)
+        self.input_type = input_type
+
+    def get_default_exec_fn(self):
+        raise ValueError("No default exec_fn, you need to provide one.")
+
+    def get_default_return_fields(self):
+        raise ValueError("No default return fields, you need to provide some.")
+
+    def convert(self, to, **kwargs):
+        return to.custom_action(self, **kwargs)

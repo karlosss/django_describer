@@ -8,11 +8,11 @@ def create_mutation_classes_for_describer(adapter, describer):
     for action in describer.get_actions():
         if action.read_only:
             continue
-        mutation_classes.append(create_mutation_class(adapter, action))
+        mutation_classes.append(create_mutation_class(adapter, action, has_model=action.has_model))
     return mutation_classes
 
 
-def create_mutate_method(action):
+def create_mutate_method(action, has_model=True):
     """
     Creates the mutate method based on fn. Adds permissions as well.
     """
@@ -20,7 +20,7 @@ def create_mutate_method(action):
     @classmethod
     def mutate(cls, root, info, *args, **kwargs):
         obj = None
-        if "id" in kwargs["data"]:
+        if has_model and "id" in kwargs["data"]:
             obj = action.get_fetch_fn()(info.context, kwargs["data"]["id"])
 
         for permission_class in action.permissions:
@@ -28,7 +28,9 @@ def create_mutate_method(action):
             if not pc.has_permission():
                 raise PermissionError(pc.error_message())
 
-        return action.get_exec_fn()(info.context, obj, kwargs["data"])
+        if obj is not None:
+            return action.get_exec_fn()(info.context, obj, kwargs["data"])
+        return action.get_exec_fn()(info.context, kwargs["data"])
 
     return mutate
 
@@ -40,30 +42,33 @@ def create_return_fields(adapter, action):
     return ret
 
 
-def create_mutation_class(adapter, action):
-    input_meta = type(
-        "Meta",
-        (object,),
-        {
-            "model": action._describer.model,
-            "only_fields": action.determine_fields(),
-            "input_for": action._name,
-        }
-    )
+def create_mutation_class(adapter, action, has_model=True):
+    if has_model:
+        input_meta = type(
+            "Meta",
+            (object,),
+            {
+                "model": action._describer.model,
+                "only_fields": action.determine_fields(),
+                "input_for": action._name,
+            }
+        )
 
-    input_class = type(
-        "{}{}Input".format(action._describer.model.__name__, action._name.capitalize()),
-        (DjangoInputObjectType,),
-        {
-            "Meta": input_meta
-        }
-    )
+        input_class = type(
+            "{}{}Input".format(action._describer.model.__name__, action._name.capitalize()),
+            (DjangoInputObjectType,),
+            {
+                "Meta": input_meta
+            }
+        )
 
-    # add extra fields to input type
-    for name, return_type in action.extra_fields.items():
-        if name in input_class._meta.input_fields:
-            raise ValueError("Duplicate field: `{}`".format(name))
-        input_class._meta.input_fields[name] = return_type.convert(adapter, input=True)
+        # add extra fields to input type
+        for name, return_type in action.extra_fields.items():
+            if name in input_class._meta.input_fields:
+                raise ValueError("Duplicate field: `{}`".format(name))
+            input_class._meta.input_fields[name] = return_type.convert(adapter, input=True)
+    else:
+        input_class = action.input_type.convert(adapter, input=True)
 
     arguments_class = type(
         "Arguments",
@@ -81,7 +86,7 @@ def create_mutation_class(adapter, action):
         {
             **return_fields,
             "Arguments": arguments_class,
-            "mutate": create_mutate_method(action),
+            "mutate": create_mutate_method(action, has_model=has_model),
         }
     )
 

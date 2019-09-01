@@ -135,10 +135,7 @@ def build_field_permissions(field_permissions):
         return {}
     ret = {}
     for field, permissions in field_permissions.items():
-        if not isinstance(permissions, (list, tuple)):
-            ret[field] = (permissions,)
-        else:
-            ret[field] = tuple(permissions)
+        ret[field] = ensure_tuple(permissions)
     return ret
 
 

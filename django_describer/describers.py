@@ -28,7 +28,6 @@ class DescriberMeta(type):
 
             cls._fields = determine_fields(cls.model, ensure_tuple(cls.only_fields), ensure_tuple(cls.exclude_fields))
             cls._field_permissions = build_field_permissions(cls.field_permissions)
-            cls._extra_fields = build_extra_fields(cls.extra_fields)
 
             cls._actions = []
 
@@ -91,6 +90,8 @@ class Describer(metaclass=DescriberMeta):
 
     @classmethod
     def get_extra_fields(cls):
+        if not hasattr(cls, "_extra_fields"):
+            cls._extra_fields = build_extra_fields(cls.extra_fields)
         return cls._extra_fields
 
     model = None

@@ -116,7 +116,9 @@ def get_object_or_raise(model, pk):
 def ensure_tuple(maybe_tuple):
     if maybe_tuple is None:
         return tuple()
-    return tuple(maybe_tuple) if isinstance(maybe_tuple, (list, tuple)) else maybe_tuple,
+    if isinstance(maybe_tuple, (list, tuple)):
+        return tuple(maybe_tuple)
+    return maybe_tuple,
 
 
 def build_extra_fields(extra_fields):

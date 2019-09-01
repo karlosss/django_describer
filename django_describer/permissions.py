@@ -3,18 +3,52 @@ from django.utils.translation import ugettext_lazy as _
 from .utils import AttrDict
 
 
-class Permission:
+class BasePermission:
+    def has_permission(self):
+        raise NotImplementedError
+
+    def error_message(self):
+        return _("You don't have permission to do this.")
+
+
+class Permission(BasePermission):
     def __init__(self, request, obj=None, data=None, qs=None):
         self.request = request
         self.obj = obj
         self.data = AttrDict(data) if data else AttrDict()
         self.qs = qs
 
+
+class OrResolver(Permission):
+    def __init__(self, permission_classes, request, obj=None, data=None, qs=None):
+        super().__init__(request=request, obj=obj, data=data, qs=qs)
+        self.permission_classes = permission_classes
+        self.errors = []
+
     def has_permission(self):
-        raise NotImplementedError
+        for permission_class in self.permission_classes:
+            pc = permission_class(self.request, obj=self.obj, data=self.data, qs=self.qs)
+            if pc.has_permission():
+                return True
+            self.errors.append(pc.error_message())
+        return False
 
     def error_message(self):
-        return _("You don't have permission to access this.")
+        err = str(self.errors[0])
+        for i in range(1, len(self.errors)):
+            err += " "
+            err += str(_("OR"))
+            err += " "
+            err += str(self.errors[i])
+        return err
+
+
+class Or:
+    def __init__(self, *permissions):
+        self.permissions = permissions
+
+    def __call__(self, request, obj=None, data=None, qs=None):
+        return OrResolver(self.permissions, request, obj=obj, data=data, qs=qs)
 
 
 class AllowAll(Permission):

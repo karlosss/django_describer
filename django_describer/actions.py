@@ -21,7 +21,6 @@ class BaseAction:
 
     def __init__(self, permissions=None):
         self.permissions = ensure_tuple(permissions)
-
         self._describer = None
         self._name = None
 

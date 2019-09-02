@@ -30,6 +30,9 @@ class BaseAction:
     def set_name(self, name):
         set_param_if_unset(self, "_name", name)
 
+    def get_permissions(self):
+        return self.permissions or self._describer.get_default_action_permissions()
+
     def convert(self, to, **kwargs):
         raise NotImplementedError
 

@@ -30,7 +30,8 @@ class DescriberMeta(type):
                                            ensure_tuple(cls.only_fields, convert_none=False),
                                            ensure_tuple(cls.exclude_fields, convert_none=False))
             cls._field_permissions = build_field_permissions(cls.field_permissions)
-            cls._default_field_permission = ensure_tuple(cls.default_field_permission)
+            cls._default_field_permissions = ensure_tuple(cls.default_field_permissions)
+            cls._default_action_permissions = ensure_tuple(cls.default_action_permissions)
 
             cls._actions = []
 
@@ -88,8 +89,12 @@ class Describer(metaclass=DescriberMeta):
         return cls._field_permissions
 
     @classmethod
-    def get_default_field_permission(cls):
-        return cls._default_field_permission
+    def get_default_field_permissions(cls):
+        return cls._default_field_permissions
+
+    @classmethod
+    def get_default_action_permissions(cls):
+        return cls._default_action_permissions
 
     @classmethod
     def get_actions(cls):
@@ -107,7 +112,7 @@ class Describer(metaclass=DescriberMeta):
     exclude_fields = None
     extra_fields = None
     field_permissions = None
-    default_field_permission = None
+    default_field_permissions = None
 
     default_page_size = None
     max_page_size = None
@@ -120,3 +125,5 @@ class Describer(metaclass=DescriberMeta):
     delete_action = DeleteAction()
 
     extra_actions = {}
+
+    default_action_permissions = None

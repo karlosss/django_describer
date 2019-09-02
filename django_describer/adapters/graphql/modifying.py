@@ -25,7 +25,7 @@ def create_mutate_method(action, has_model=True):
         if has_model and "id" in kwargs["data"]:
             obj = action.get_fetch_fn()(info.context, kwargs["data"]["id"])
 
-        for permission_class in action.permissions:
+        for permission_class in action.get_permissions():
             pc = permission_class(info.context, obj=obj, data=kwargs["data"])
             if not pc.has_permission():
                 raise PermissionError(pc.error_message())

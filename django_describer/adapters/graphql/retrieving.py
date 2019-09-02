@@ -108,8 +108,9 @@ def create_query_class(adapter, describer):
 
         attrs[name] = action.convert(adapter)
 
-        if action.permissions:
-            attrs["resolve_{}".format(name)] = create_permissions_check_method(permission_classes=action.permissions)
+        if action.get_permissions():
+            attrs["resolve_{}".format(name)] = create_permissions_check_method(
+                permission_classes=action.get_permissions())
 
     query_class = type(
         "Query",
@@ -129,8 +130,8 @@ def add_permissions_to_type_class(describer, type_class):
 
         if field in describer.get_field_permissions():
             permissions = describer.get_field_permissions()[field]
-        elif describer.get_default_field_permission():
-            permissions = describer.get_default_field_permission()
+        elif describer.get_default_field_permissions():
+            permissions = describer.get_default_field_permissions()
 
         if permissions:
             setattr(type_class,

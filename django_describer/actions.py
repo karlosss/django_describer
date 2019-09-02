@@ -76,8 +76,8 @@ class ModifyAction(BaseAction):
     def __init__(self, permissions=None, only_fields=None, exclude_fields=None, extra_fields=None, exec_fn=None,
                  return_fields=None):
         super().__init__(permissions=permissions)
-        self.only_fields = ensure_tuple(only_fields)
-        self.exclude_fields = ensure_tuple(exclude_fields)
+        self.only_fields = ensure_tuple(only_fields, convert_none=False)
+        self.exclude_fields = ensure_tuple(exclude_fields, convert_none=False)
         self.extra_fields = build_extra_fields(extra_fields)
         self.exec_fn = exec_fn
         self.return_fields = build_extra_fields(return_fields)

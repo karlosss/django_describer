@@ -124,10 +124,18 @@ def add_permissions_to_type_class(describer, type_class):
     """
     Adds permissions to the given DjangoObjectType class.
     """
-    for field_name, permission_classes in describer.get_field_permissions().items():
-        setattr(type_class,
-                "resolve_{}".format(field_name),
-                create_permissions_check_method(field_name, permission_classes))
+    for field in describer.get_fields():
+        permissions = None
+
+        if field in describer.get_field_permissions():
+            permissions = describer.get_field_permissions()[field]
+        elif describer.get_default_field_permission():
+            permissions = describer.get_default_field_permission()
+
+        if permissions:
+            setattr(type_class,
+                    "resolve_{}".format(field),
+                    create_permissions_check_method(field, permissions))
 
 
 def add_extra_fields_to_type_class(adapter, describer, type_class):

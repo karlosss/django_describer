@@ -28,6 +28,7 @@ class DescriberMeta(type):
 
             cls._fields = determine_fields(cls.model, ensure_tuple(cls.only_fields), ensure_tuple(cls.exclude_fields))
             cls._field_permissions = build_field_permissions(cls.field_permissions)
+            cls._default_field_permission = ensure_tuple(cls.default_field_permission)
 
             cls._actions = []
 
@@ -85,6 +86,10 @@ class Describer(metaclass=DescriberMeta):
         return cls._field_permissions
 
     @classmethod
+    def get_default_field_permission(cls):
+        return cls._default_field_permission
+
+    @classmethod
     def get_actions(cls):
         return cls._actions
 
@@ -100,6 +105,7 @@ class Describer(metaclass=DescriberMeta):
     exclude_fields = None
     extra_fields = None
     field_permissions = None
+    default_field_permission = None
 
     default_page_size = None
     max_page_size = None

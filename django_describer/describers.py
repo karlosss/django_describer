@@ -26,7 +26,9 @@ class DescriberMeta(type):
             # save the describer
             DescriberMeta.all_describers[cls.model] = cls
 
-            cls._fields = determine_fields(cls.model, ensure_tuple(cls.only_fields), ensure_tuple(cls.exclude_fields))
+            cls._fields = determine_fields(cls.model,
+                                           ensure_tuple(cls.only_fields, convert_none=False),
+                                           ensure_tuple(cls.exclude_fields, convert_none=False))
             cls._field_permissions = build_field_permissions(cls.field_permissions)
             cls._default_field_permission = ensure_tuple(cls.default_field_permission)
 

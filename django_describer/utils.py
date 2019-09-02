@@ -69,9 +69,6 @@ def determine_fields(model, only_fields, exclude_fields, no_reverse=False):
     if only_fields is None and exclude_fields is None:
         exclude_fields = ()
 
-    if only_fields == tuple() and exclude_fields == tuple():
-        only_fields = None
-
     if only_fields is not None and exclude_fields is not None:
         raise ValueError("Cannot define both only_fields and exclude_fields.")
 
@@ -113,9 +110,11 @@ def get_object_or_raise(model, pk):
     return qs.get()
 
 
-def ensure_tuple(maybe_tuple):
+def ensure_tuple(maybe_tuple, convert_none=True):
     if maybe_tuple is None:
-        return tuple()
+        if convert_none:
+            return tuple()
+        return None
     if isinstance(maybe_tuple, (list, tuple)):
         return tuple(maybe_tuple)
     return maybe_tuple,

@@ -4,8 +4,14 @@ from .utils import AttrDict
 
 
 class BasePermission:
-    def has_permission(self):
+    def permission_statement(self):
         raise NotImplementedError
+
+    def has_permission(self):
+        for clas in self.__class__.__mro__:
+            if not clas.permission_statement(self):
+                return False
+        return True
 
     def error_message(self):
         return _("You don't have permission to do this.")
@@ -52,17 +58,17 @@ class Or:
 
 
 class AllowAll(Permission):
-    def has_permission(self):
+    def permission_statement(self):
         return True
 
 
 class AllowNone(Permission):
-    def has_permission(self):
+    def permission_statement(self):
         return False
 
 
 class IsAuthenticated(Permission):
-    def has_permission(self):
+    def permission_statement(self):
         return self.request.user and self.request.user.is_authenticated
 
     def error_message(self):

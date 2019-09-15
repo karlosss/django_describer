@@ -3,6 +3,7 @@ import graphene
 from graphene_django_extras import DjangoObjectType, DjangoListObjectType
 from graphene_django_extras.settings import graphql_api_settings
 
+from django_describer.adapters.utils import register_action_name
 from ...datatypes import String, Integer, Float, Boolean, NullType, get_instantiated_type
 from .converter import convert_local_fields
 from .pagination import LimitOffsetOrderingGraphqlPagination
@@ -93,18 +94,19 @@ def create_filter_fields(describer):
     return filter_fields
 
 
-def create_query_class(adapter, describer):
+def create_query_class(adapter, actions):
     """
-    Creates a Query class for a type, featuring listing and detail methods.
+    Creates a Query class, featuring listing and detail methods.
     """
 
     attrs = {}
 
-    for action in describer.get_actions():
+    for action in actions:
         if not action.read_only:
             continue
 
-        name = "{}_{}".format(action._describer.model.__name__, action._name)
+        name = action.get_name()
+        register_action_name(adapter, name)
 
         attrs[name] = action.convert(adapter)
 
@@ -153,8 +155,8 @@ def add_extra_fields_to_type_class(adapter, describer, type_class):
             adapter, property_name=field_name)
 
 
-def create_global_query_class(query_classes):
-    return type("Query", query_classes.values() + (graphene.ObjectType,), {})
+def create_global_query_class(query_classes, non_model_query_class):
+    return type("Query", query_classes.values() + (non_model_query_class,) + (graphene.ObjectType,), {})
 
 
 def create_permissions_check_method(field_name=None, permission_classes=()):

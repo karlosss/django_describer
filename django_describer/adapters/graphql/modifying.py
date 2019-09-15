@@ -2,12 +2,13 @@ import graphene
 from graphene import ObjectType
 from graphene_django_extras import DjangoInputObjectType
 
+from django_describer.adapters.utils import register_action_name
 from django_describer.datatypes import get_instantiated_type
 
 
-def create_mutation_classes_for_describer(adapter, describer):
+def create_mutation_classes(adapter, actions):
     mutation_classes = []
-    for action in describer.get_actions():
+    for action in actions:
         if action.read_only:
             continue
         mutation_classes.append(create_mutation_class(adapter, action, has_model=action.has_model))
@@ -83,7 +84,7 @@ def create_mutation_class(adapter, action, has_model=True):
     return_fields = create_return_fields(adapter, action)
 
     mutation_class = type(
-        "{}{}Mutation".format(action._describer.model.__name__, action._name.capitalize()),
+        "{}Mutation".format(action.get_name(camelcase=True)),
         (graphene.Mutation,),
         {
             **return_fields,
@@ -92,16 +93,21 @@ def create_mutation_class(adapter, action, has_model=True):
         }
     )
 
-    mutation_class._name = action._name.capitalize()
+    name = action.get_name()
+    register_action_name(adapter, name)
+    mutation_class._name = name
 
     return mutation_class
 
 
-def create_global_mutation_class(mutation_classes):
+def create_global_mutation_class(mutation_classes, non_model_mutation_classes):
     attrs = {}
     for model, mutations in mutation_classes.items():
         for mutation in mutations:
-            attrs["{}_{}".format(model.__name__, mutation._name)] = mutation.Field()
+            attrs[mutation._name] = mutation.Field()
+
+    for mutation in non_model_mutation_classes:
+        attrs[mutation._name] = mutation.Field()
 
     mutation_class = type(
         "Mutation",

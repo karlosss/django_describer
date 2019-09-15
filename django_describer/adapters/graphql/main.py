@@ -4,6 +4,7 @@ import graphene
 from graphene.types.utils import get_field_as
 from graphene_django.views import GraphQLView
 
+from django_describer.adapters.utils import non_model_actions
 from ..base import Adapter
 from .fields import DjangoNestableListObjectPermissionsField, DjangoObjectPermissionsField
 from ...datatypes import get_instantiated_type
@@ -11,7 +12,7 @@ from ...describers import get_describers
 from ...utils import AttrDict
 from .retrieving import create_type_class, add_extra_fields_to_type_class, add_permissions_to_type_class, \
     create_query_class, create_global_query_class
-from .modifying import create_mutation_classes_for_describer, create_global_mutation_class
+from .modifying import create_mutation_classes, create_global_mutation_class
 
 create_class = type
 
@@ -73,13 +74,13 @@ class GraphQL(Adapter):
 
         if "input" in kwargs and kwargs["input"]:
             return create_class(
-                "Input",
+                "{}Input".format(type.type_name),
                 (graphene.InputObjectType,),
                 attrs,
             )
 
         type_class = create_class(
-            "ObjectType",
+            "{}ObjectType".format(type.type_name),
             (graphene.ObjectType,),
             attrs
         )
@@ -115,15 +116,18 @@ class GraphQL(Adapter):
 
         for describer in describers:
             # create a Query class for each model (need to create all of them first)
-            self.query_classes[describer.model] = create_query_class(self, describer)
+            self.query_classes[describer.model] = create_query_class(self, describer.get_actions())
 
             # create mutation classes for the describer, including permissions and extra fields
-            self.mutation_classes[describer.model] = create_mutation_classes_for_describer(self, describer)
+            self.mutation_classes[describer.model] = create_mutation_classes(self, describer.get_actions())
+
+        non_model_query_class = create_query_class(self, non_model_actions)
+        non_model_mutation_classes = create_mutation_classes(self, non_model_actions)
 
         # create GraphQL schema
         schema = graphene.Schema(
-            query=create_global_query_class(self.query_classes),
-            mutation=create_global_mutation_class(self.mutation_classes)
+            query=create_global_query_class(self.query_classes, non_model_query_class),
+            mutation=create_global_mutation_class(self.mutation_classes, non_model_mutation_classes)
         )
 
         # create GraphQL view

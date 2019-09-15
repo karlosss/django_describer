@@ -1,7 +1,3 @@
-def generate(adapter):
-    return adapter().generate()
-
-
 class Adapter:
     def string_type(self, type, **kwargs):
         raise NotImplementedError

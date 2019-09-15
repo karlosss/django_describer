@@ -9,6 +9,8 @@ class BasePermission:
 
     def has_permission(self):
         for clas in self.__class__.__mro__:
+            if clas is Permission or clas is OrResolver:
+                break
             if not clas.permission_statement(self):
                 return False
         return True

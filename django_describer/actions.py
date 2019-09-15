@@ -1,5 +1,6 @@
 from enum import Enum
 
+from django_describer.permissions import AllowAll
 from .utils import ensure_tuple, set_param_if_unset, get_object_or_raise, build_extra_fields, determine_fields
 
 
@@ -30,8 +31,31 @@ class BaseAction:
     def set_name(self, name):
         set_param_if_unset(self, "_name", name)
 
+    def get_name(self, capitalized=False, camelcase=False):
+        if self._name is None:
+            raise ValueError("_name is not set.")
+
+        model = ""
+
+        if self._describer is not None:
+            model = self._describer.model.__name__
+
+        if camelcase:
+            name = model + self._name.capitalize()
+        else:
+            name = "{}_{}".format(model, self._name)
+
+        if capitalized:
+            name = name.capitalize()
+
+        return name
+
     def get_permissions(self):
-        return self.permissions or self._describer.get_default_action_permissions()
+        if self.permissions:
+            return self.permissions
+        if self._describer is not None:
+            self._describer.get_default_action_permissions()
+        return AllowAll,
 
     def convert(self, to, **kwargs):
         raise NotImplementedError

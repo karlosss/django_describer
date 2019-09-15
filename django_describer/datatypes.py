@@ -105,8 +105,9 @@ class CompositeType(Type):
     Technically, this is an Object type without Django model.
     """
 
-    def __init__(self, field_map, **kwargs):
+    def __init__(self, type_name, field_map, **kwargs):
         super().__init__(**kwargs)
+        self.type_name = type_name
         self.field_map = field_map  # key: field name, value: field type
 
     def convert(self, to, **kwargs):

@@ -1,5 +1,7 @@
 from inspect import isclass
 
+from django.db.models import Model
+
 
 class Type:
     def __init__(self, required=True, **kwargs):
@@ -118,5 +120,9 @@ def get_instantiated_type(maybe_type):
     if maybe_type in model_type_mapping:
         return model_type_mapping[maybe_type]
     if isclass(maybe_type):
-        return maybe_type()
+        if issubclass(maybe_type, Model):
+            raise ValueError(
+                "`{m}` has not been registered yet. Please use `ModelType({m})` instead.".format(m=maybe_type.__name__))
+        else:
+            return maybe_type()
     return maybe_type

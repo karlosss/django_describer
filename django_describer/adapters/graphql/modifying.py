@@ -70,14 +70,15 @@ def create_mutation_class(adapter, action, has_model=True):
             if name in input_class._meta.input_fields:
                 raise ValueError("Duplicate field: `{}`".format(name))
             input_class._meta.input_fields[name] = get_instantiated_type(return_type).convert(adapter, input=True)
+        input_type = input_class(required=True)
     else:
-        input_class = get_instantiated_type(action.input_type).convert(adapter, input=True)
+        input_type = get_instantiated_type(action.input_type).convert(adapter, input=True)
 
     arguments_class = type(
         "Arguments",
         (object,),
         {
-            "data": graphene.Argument(input_class, required=True)
+            "data": input_type
         }
     )
 

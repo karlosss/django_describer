@@ -23,7 +23,7 @@ class GraphQL(Adapter):
         A helper for converting primitive types to Graphene.
         """
         if "input" in kwargs and kwargs["input"]:
-            return get_field_as(type, _as=graphene.InputField)
+            return type
         return get_field_as(type, _as=graphene.Field)
 
     def string_type(self, type, **kwargs):
@@ -77,7 +77,7 @@ class GraphQL(Adapter):
                 "{}Input".format(type.type_name),
                 (graphene.InputObjectType,),
                 attrs,
-            )
+            )(required=type.kwargs["required"])
 
         type_class = create_class(
             "{}ObjectType".format(type.type_name),

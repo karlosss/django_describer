@@ -16,3 +16,5 @@ def register_non_model_action(name, action):
 
 def generate(adapter):
     return adapter().generate()
+
+

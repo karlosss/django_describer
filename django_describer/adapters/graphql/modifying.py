@@ -1,4 +1,5 @@
 import graphene
+from django.db.models import ForeignKey
 from graphene import ObjectType
 from graphene_django_extras import DjangoInputObjectType
 
@@ -45,6 +46,22 @@ def create_return_fields(adapter, action):
     return ret
 
 
+def update_foreign_key_fields(action, input_class):
+    updated_fields = {}
+    deleted_fields = set()
+    for name, field in input_class._meta.fields.items():
+        django_field = action._describer.model._meta.get_field(name)
+        if isinstance(django_field, ForeignKey):
+            updated_fields["{}_id".format(name)] = field
+            deleted_fields.add(name)
+
+    for name in deleted_fields:
+        del input_class._meta.fields[name]
+
+    for name, field in updated_fields.items():
+        input_class._meta.fields[name] = field
+
+
 def create_mutation_class(adapter, action, has_model=True):
     if has_model:
         input_meta = type(
@@ -64,6 +81,8 @@ def create_mutation_class(adapter, action, has_model=True):
                 "Meta": input_meta
             }
         )
+
+        update_foreign_key_fields(action, input_class)
 
         # add extra fields to input type
         for name, return_type in action.extra_fields.items():

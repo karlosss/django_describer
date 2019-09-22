@@ -29,5 +29,20 @@ class Adapter:
     def detail_action(self, action, **kwargs):
         raise NotImplementedError
 
+    def create_action(self, action, **kwargs):
+        raise NotImplementedError
+
+    def update_action(self, action, **kwargs):
+        raise NotImplementedError
+
+    def delete_action(self, action, **kwargs):
+        raise NotImplementedError
+
+    def custom_action(self, action, **kwargs):
+        raise NotImplementedError
+
+    def custom_object_action(self, action, **kwargs):
+        raise NotImplementedError
+
     def generate(self, **kwargs):
         raise NotImplementedError

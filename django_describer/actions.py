@@ -219,3 +219,15 @@ class CustomAction(ModifyAction):
 
     def convert(self, to, **kwargs):
         return to.custom_action(self, **kwargs)
+
+
+class CustomObjectAction(UpdateAction):
+    def __init__(self, permissions=None, extra_fields=None, exec_fn=None, return_fields=None, fetch_fn=None):
+        super().__init__(permissions=permissions, only_fields=(), exclude_fields=None,
+                         extra_fields=extra_fields, exec_fn=exec_fn, return_fields=return_fields, fetch_fn=fetch_fn)
+
+    def get_default_exec_fn(self):
+        raise ValueError("No default exec_fn, you need to provide one.")
+
+    def convert(self, to, **kwargs):
+        return to.custom_object_action(self, **kwargs)

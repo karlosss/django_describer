@@ -5,6 +5,7 @@ from graphene_django_extras import DjangoInputObjectType
 
 from django_describer.adapters.utils import register_action_name
 from django_describer.datatypes import get_instantiated_type
+from django_describer.utils import to_camelcase
 
 
 def create_mutation_classes(adapter, actions):
@@ -88,7 +89,7 @@ def create_mutation_class(adapter, action, has_model=True):
         for name, return_type in action.extra_fields.items():
             if name in input_class._meta.input_fields:
                 raise ValueError("Duplicate field: `{}`".format(name))
-            input_class._meta.input_fields[name] = get_instantiated_type(return_type).convert(adapter, input=True)
+            input_class._meta.input_fields[name] = get_instantiated_type(return_type).convert(adapter, input_field=True)
         input_type = input_class(required=True)
     else:
         input_type = get_instantiated_type(action.input_type).convert(adapter, input=True)
@@ -104,7 +105,7 @@ def create_mutation_class(adapter, action, has_model=True):
     return_fields = create_return_fields(adapter, action)
 
     mutation_class = type(
-        "{}Mutation".format(action.get_name(camelcase=True)),
+        "{}Mutation".format(to_camelcase(action.get_name())),
         (graphene.Mutation,),
         {
             **return_fields,

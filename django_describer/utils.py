@@ -1,3 +1,5 @@
+import re
+
 from django.db.models import ManyToOneRel, ManyToManyRel
 
 from .datatypes import get_instantiated_type
@@ -142,3 +144,14 @@ def set_param_if_unset(obj, param, value):
     if hasattr(obj, param) and getattr(obj, param) is not None:
         raise ValueError("`{}` is already set.".format(param))
     setattr(obj, param, value)
+
+
+def in_kwargs_and_true(kwargs, param):
+    return param in kwargs and kwargs[param]
+
+
+def to_camelcase(string, capitalize=True):
+    out = ''.join(a.capitalize() for a in re.split('([^a-zA-Z0-9])', string) if a.isalnum())
+    if capitalize:
+        return out
+    return out[0].lower() + out[1:]

@@ -23,7 +23,14 @@ class Permission(BasePermission):
     def __init__(self, request, obj=None, data=None, qs=None):
         self.request = request
         self.obj = obj
-        self.data = AttrDict(data) if data else AttrDict()
+
+        if data is None:
+            self.data = AttrDict()
+        elif isinstance(data, dict):
+            self.data = AttrDict(data)
+        else:
+            self.data = data
+
         self.qs = qs
 
 

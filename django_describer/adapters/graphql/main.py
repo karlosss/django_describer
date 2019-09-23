@@ -9,7 +9,7 @@ from ..base import Adapter
 from .fields import DjangoNestableListObjectPermissionsField, DjangoObjectPermissionsField
 from ...datatypes import get_instantiated_type
 from ...describers import get_describers
-from ...utils import AttrDict
+from ...utils import AttrDict, in_kwargs_and_true
 from .retrieving import create_type_class, add_extra_fields_to_type_class, add_permissions_to_type_class, \
     create_query_class, create_global_query_class
 from .modifying import create_mutation_classes, create_global_mutation_class
@@ -22,8 +22,10 @@ class GraphQL(Adapter):
         """
         A helper for converting primitive types to Graphene.
         """
-        if "input" in kwargs and kwargs["input"]:
+        if in_kwargs_and_true(kwargs, "input"):
             return type
+        if in_kwargs_and_true(kwargs, "input_field"):
+            return get_field_as(type, _as=graphene.InputField)
         return get_field_as(type, _as=graphene.Field)
 
     def string_type(self, type, **kwargs):
@@ -46,7 +48,7 @@ class GraphQL(Adapter):
         Returns a field for listing. If the data shall be fetched from a queryset returned by its property,
         the property name is passed via kwargs.
         """
-        if "input" in kwargs and kwargs["input"]:
+        if in_kwargs_and_true(kwargs, "input") or in_kwargs_and_true(kwargs, "input_field"):
             raise ValueError("Cannot convert QuerySet as input parameter.")
 
         property_name = kwargs.get("property_name", None)
@@ -59,10 +61,10 @@ class GraphQL(Adapter):
         """
         Returns a DjangoListObjectType if converting for lists, Field otherwise.
         """
-        if "list" in kwargs and kwargs["list"]:
+        if in_kwargs_and_true(kwargs, "list"):
             return self.type_classes[type.model].get_list_type()
 
-        if "input" in kwargs and kwargs["input"]:
+        if in_kwargs_and_true(kwargs, "input") or in_kwargs_and_true(kwargs, "input_field"):
             raise ValueError("Cannot convert ModelType as input parameter.")
 
         return graphene.Dynamic(lambda: graphene.Field(self.type_classes[type.model]))
@@ -70,14 +72,19 @@ class GraphQL(Adapter):
     def composite_type(self, type, **kwargs):
         attrs = {}
         for name, return_type in type.field_map.items():
-            attrs[name] = get_instantiated_type(return_type).convert(self, input="input" in kwargs and kwargs["input"])
+            attrs[name] = get_instantiated_type(return_type).convert(
+                self, input=in_kwargs_and_true(kwargs, "input"), input_field=in_kwargs_and_true(kwargs, "input_field"))
 
-        if "input" in kwargs and kwargs["input"]:
-            return create_class(
+        if in_kwargs_and_true(kwargs, "input") or in_kwargs_and_true(kwargs, "input_field"):
+            input_class = create_class(
                 "{}Input".format(type.type_name),
                 (graphene.InputObjectType,),
                 attrs,
             )(required=type.kwargs["required"])
+
+            if in_kwargs_and_true(kwargs, "input"):
+                return input_class
+            return get_field_as(input_class, _as=graphene.InputField)
 
         type_class = create_class(
             "{}ObjectType".format(type.type_name),
@@ -96,7 +103,7 @@ class GraphQL(Adapter):
 
     def generate(self):
         # silence GraphQL exception logger
-        logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
+        # logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
 
         describers = get_describers()
 

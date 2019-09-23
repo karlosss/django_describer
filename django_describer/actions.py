@@ -31,24 +31,14 @@ class BaseAction:
     def set_name(self, name):
         set_param_if_unset(self, "_name", name)
 
-    def get_name(self, capitalized=False, camelcase=False):
+    def get_name(self):
         if self._name is None:
             raise ValueError("_name is not set.")
 
-        model = ""
-
         if self._describer is not None:
             model = self._describer.model.__name__
-
-        if camelcase:
-            name = model + self._name.capitalize()
-        else:
-            name = "{}_{}".format(model, self._name)
-
-        if capitalized:
-            name = name.capitalize()
-
-        return name
+            return "{}_{}".format(model, self._name)
+        return self._name
 
     def get_permissions(self):
         if self.permissions:

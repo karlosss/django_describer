@@ -101,6 +101,22 @@ class GraphQL(Adapter):
         return DjangoObjectPermissionsField(self.type_classes[action._describer.model], fetch_fn=action.get_fetch_fn(),
                                             id_arg=action.id_arg)
 
+    def create_action(self, action, **kwargs):
+        if in_kwargs_and_true(kwargs, "input_flag"):
+            return "create"
+
+    def update_action(self, action, **kwargs):
+        if in_kwargs_and_true(kwargs, "input_flag"):
+            return "update"
+
+    def delete_action(self, action, **kwargs):
+        if in_kwargs_and_true(kwargs, "input_flag"):
+            return "delete"
+
+    def custom_object_action(self, action, **kwargs):
+        if in_kwargs_and_true(kwargs, "input_flag"):
+            return "update"
+
     def generate(self):
         # silence GraphQL exception logger
         # logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)

@@ -157,7 +157,7 @@ class UpdateAction(FetchModifyAction):
             for k, v in data:
                 setattr(instance, k, v)
             instance.save()
-            return instance
+            return {"object": instance}
         return fn
 
     def get_default_return_fields(self):
@@ -181,7 +181,7 @@ class DeleteAction(FetchModifyAction):
     def get_default_exec_fn(self):
         def fn(request, instance, data):
             instance.delete()
-            return instance
+            return {"object": instance}
         return fn
 
     def get_default_return_fields(self):

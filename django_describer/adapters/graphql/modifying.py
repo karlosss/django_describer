@@ -71,7 +71,7 @@ def create_mutation_class(adapter, action, has_model=True):
             {
                 "model": action._describer.model,
                 "only_fields": action.determine_fields(),
-                "input_for": action._name,
+                "input_for": action.convert(adapter, input_flag=True),
             }
         )
 

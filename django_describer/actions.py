@@ -44,7 +44,7 @@ class BaseAction:
         if self.permissions:
             return self.permissions
         if self._describer is not None:
-            self._describer.get_default_action_permissions()
+            return self._describer.get_default_action_permissions()
         return AllowAll,
 
     def convert(self, to, **kwargs):

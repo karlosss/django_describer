@@ -1,6 +1,7 @@
 import graphene
 from django.db.models import ForeignKey
-from graphene import ObjectType
+from graphene import ObjectType, InputField, NonNull
+from graphene.types.utils import get_field_as
 from graphene_django_extras import DjangoInputObjectType
 
 from django_describer.adapters.utils import register_action_name
@@ -84,6 +85,17 @@ def create_mutation_class(adapter, action, has_model=True):
         )
 
         update_foreign_key_fields(action, input_class)
+
+        # consider field_kwargs
+        for field, kwargs in action.field_kwargs.items():
+            if field not in input_class._meta.input_fields:
+                raise ValueError("Unknown field: `{}`".format(field))
+
+            old_type = input_class._meta.input_fields[field].type
+            if isinstance(old_type, NonNull) and "required" in kwargs and not kwargs["required"]:
+                input_class._meta.input_fields[field] = InputField(old_type.of_type)
+            elif not isinstance(old_type, NonNull) and "required" in kwargs and kwargs["required"]:
+                input_class._meta.input_fields[field] = InputField(NonNull(old_type))
 
         # add extra fields to input type
         for name, return_type in action.extra_fields.items():

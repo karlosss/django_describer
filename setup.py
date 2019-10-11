@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="django_describer",
-    version="0.0.18",
+    version="0.0.19",
     author="Karel Jilek",
     author_email="los.karlosss@gmail.com",
     description="A tool for automated generation of several APIs from a Django webapp.",

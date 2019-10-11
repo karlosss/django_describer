@@ -91,13 +91,14 @@ class DetailAction(RetrieveAction):
 
 class ModifyAction(BaseAction):
     def __init__(self, permissions=None, only_fields=None, exclude_fields=None, extra_fields=None, exec_fn=None,
-                 return_fields=None):
+                 return_fields=None, field_kwargs=None):
         super().__init__(permissions=permissions)
         self.only_fields = ensure_tuple(only_fields, convert_none=False)
         self.exclude_fields = ensure_tuple(exclude_fields, convert_none=False)
         self.extra_fields = build_extra_fields(extra_fields)
         self.exec_fn = exec_fn
         self.return_fields = build_extra_fields(return_fields)
+        self.field_kwargs = field_kwargs or {}
 
     def get_exec_fn(self):
         return self.exec_fn or self.get_default_exec_fn()
@@ -137,9 +138,10 @@ class CreateAction(ModifyAction):
 
 class FetchModifyAction(ModifyAction):
     def __init__(self, permissions=None, only_fields=None, exclude_fields=None, extra_fields=None, exec_fn=None,
-                 return_fields=None, fetch_fn=None):
+                 return_fields=None, field_kwargs=None, fetch_fn=None):
         super().__init__(permissions=permissions, only_fields=only_fields, exclude_fields=exclude_fields,
-                         extra_fields=extra_fields, exec_fn=exec_fn, return_fields=return_fields)
+                         extra_fields=extra_fields, exec_fn=exec_fn, return_fields=return_fields,
+                         field_kwargs=field_kwargs)
         self.fetch_fn = fetch_fn
 
     def get_fetch_fn(self):
@@ -174,9 +176,10 @@ class UpdateAction(FetchModifyAction):
 
 
 class DeleteAction(FetchModifyAction):
-    def __init__(self, permissions=None, extra_fields=None, exec_fn=None, return_fields=None, fetch_fn=None):
+    def __init__(self, permissions=None, extra_fields=None, exec_fn=None, return_fields=None, field_kwargs=None,
+                 fetch_fn=None):
         super().__init__(permissions=permissions, extra_fields=extra_fields, exec_fn=exec_fn,
-                         return_fields=return_fields, fetch_fn=fetch_fn)
+                         return_fields=return_fields, field_kwargs=field_kwargs, fetch_fn=fetch_fn)
 
     def get_default_exec_fn(self):
         def fn(request, instance, data):

@@ -19,6 +19,10 @@ class AttrDict(dict):
         return tuple(super().values())
 
 
+def as_dict(**kwargs):
+    return kwargs
+
+
 def __reverse_fields(model, local_field_names):
     for name, attr in model.__dict__.items():
         # Don't duplicate any local fields

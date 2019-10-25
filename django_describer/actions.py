@@ -16,6 +16,26 @@ class ActionName(Enum):
         return set(item.value for item in cls)
 
 
+def default_create(model):
+    def fn(request, data):
+        obj = model(**data)
+        obj.save()
+        return {"object": obj}
+    return fn
+
+
+def default_update(request, instance, data):
+    for k, v in data:
+        setattr(instance, k, v)
+    instance.save()
+    return {"object": instance}
+
+
+def default_delete(request, instance, data):
+    instance.delete()
+    return {"object": instance}
+
+
 class BaseAction:
     read_only = False
     has_model = True
@@ -118,11 +138,7 @@ class ModifyAction(BaseAction):
 
 class CreateAction(ModifyAction):
     def get_default_exec_fn(self):
-        def fn(request, data):
-            obj = self._describer.model(**data)
-            obj.save()
-            return {"object": obj}
-        return fn
+        return default_create(self._describer.model)
 
     def get_default_return_fields(self):
         return {"object": self._describer.model}
@@ -155,12 +171,7 @@ class FetchModifyAction(ModifyAction):
 
 class UpdateAction(FetchModifyAction):
     def get_default_exec_fn(self):
-        def fn(request, instance, data):
-            for k, v in data:
-                setattr(instance, k, v)
-            instance.save()
-            return {"object": instance}
-        return fn
+        return default_update
 
     def get_default_return_fields(self):
         return {"object": self._describer.model}
@@ -182,10 +193,7 @@ class DeleteAction(FetchModifyAction):
                          return_fields=return_fields, field_kwargs=field_kwargs, fetch_fn=fetch_fn)
 
     def get_default_exec_fn(self):
-        def fn(request, instance, data):
-            instance.delete()
-            return {"object": instance}
-        return fn
+        return default_delete
 
     def get_default_return_fields(self):
         return {"object": self._describer.model}

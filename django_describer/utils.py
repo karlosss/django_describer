@@ -154,6 +154,10 @@ def in_kwargs_and_true(kwargs, param):
     return param in kwargs and kwargs[param]
 
 
+def in_kwargs_and_false(kwargs, param):
+    return param in kwargs and not kwargs[param]
+
+
 def to_camelcase(string, capitalize=True):
     out = ''.join(a.capitalize() for a in re.split('([^a-zA-Z0-9])', string) if a.isalnum())
     if capitalize:

@@ -1,3 +1,5 @@
+from inspect import isclass
+
 import graphene
 from django.db.models import ForeignKey
 from graphene import ObjectType, InputField, NonNull
@@ -6,7 +8,7 @@ from graphene_django_extras import DjangoInputObjectType
 
 from django_describer.adapters.utils import register_action_name
 from django_describer.datatypes import get_instantiated_type
-from django_describer.utils import to_camelcase
+from django_describer.utils import to_camelcase, in_kwargs_and_true, in_kwargs_and_false
 
 
 def create_mutation_classes(adapter, actions):
@@ -84,18 +86,35 @@ def create_mutation_class(adapter, action, has_model=True):
             }
         )
 
-        update_foreign_key_fields(action, input_class)
-
         # consider field_kwargs
         for field, kwargs in action.field_kwargs.items():
             if field not in input_class._meta.input_fields:
                 raise ValueError("Unknown field: `{}`".format(field))
 
             old_type = input_class._meta.input_fields[field].type
-            if isinstance(old_type, NonNull) and "required" in kwargs and not kwargs["required"]:
-                input_class._meta.input_fields[field] = InputField(old_type.of_type)
-            elif not isinstance(old_type, NonNull) and "required" in kwargs and kwargs["required"]:
-                input_class._meta.input_fields[field] = InputField(NonNull(old_type))
+
+            if isinstance(old_type, NonNull):
+                was_required = True
+                new_type = old_type.of_type
+            elif isclass(old_type):
+                was_required = False
+                new_type = NonNull(old_type)
+            else:
+                if in_kwargs_and_true(kwargs, "required"):
+                    was_required = False
+                    new_type = NonNull(graphene.ID)
+                elif in_kwargs_and_false(kwargs, "required"):
+                    was_required = True
+                    new_type = graphene.ID
+                else:
+                    raise ValueError("Invalid field kwargs.")
+
+            if (was_required and in_kwargs_and_false(kwargs, "required")) or (
+                    not was_required and in_kwargs_and_true(kwargs, "required")):
+                input_class._meta.input_fields[field] = InputField(new_type)
+
+        # append _id to foreign key names
+        update_foreign_key_fields(action, input_class)
 
         # add extra fields to input type
         for name, return_type in action.extra_fields.items():

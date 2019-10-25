@@ -110,6 +110,7 @@ class Describer(metaclass=DescriberMeta):
 
     only_fields = None
     exclude_fields = None
+    extra_filters = {}
     extra_fields = None
     field_permissions = None
     default_field_permissions = None

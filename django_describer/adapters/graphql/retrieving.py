@@ -91,6 +91,10 @@ def create_filter_fields(describer):
         # add the filters to the output
         filter_fields[field_name] = field_type.filters()
 
+    # add custom filters
+    for field_name, field_type in describer.extra_filters.items():
+        filter_fields[field_name] = field_type.filters()
+
     return filter_fields
 
 

@@ -84,12 +84,15 @@ def create_filter_fields(describer):
     field_names = (f.name for f in describer.model._meta.fields)
 
     for field_name in field_names:
+        if isinstance(describer.model._meta.get_field(field_name), django.db.models.ForeignKey):
+            # handle foreign keys
+            filter_fields[field_name + "_id"] = Integer.filters()
+        else:
+            # get the filters for each field based on their types (NullType stands for unknown field type)
+            field_type = _reverse_field_map.get(describer.model._meta.get_field(field_name).__class__, NullType)
 
-        # get the filters for each field based on their types
-        field_type = _reverse_field_map.get(describer.model._meta.get_field(field_name).__class__, NullType)
-
-        # add the filters to the output
-        filter_fields[field_name] = field_type.filters()
+            # add the filters to the output
+            filter_fields[field_name] = field_type.filters()
 
     # add custom filters
     for field_name, field_type in describer.extra_filters.items():

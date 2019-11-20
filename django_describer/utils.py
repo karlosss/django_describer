@@ -112,7 +112,7 @@ def get_object_or_none(model, pk):
 def get_object_or_raise(model, pk):
     qs = model.objects.filter(pk=pk)
     if not qs.exists():
-        raise ValueError("`{}` with pk={} does not exist.".format(model, pk))
+        raise ValueError("`{}` with pk={} does not exist.".format(model_singular_name(model), pk))
     return qs.get()
 
 

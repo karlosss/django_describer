@@ -1,6 +1,7 @@
 import logging
 
 import graphene
+from django.views.decorators.csrf import csrf_exempt
 from graphene.types.utils import get_field_as
 from graphene_django.views import GraphQLView
 
@@ -119,7 +120,7 @@ class GraphQL(Adapter):
 
     def generate(self):
         # silence GraphQL exception logger
-        # logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
+        logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
 
         describers = get_describers()
 
@@ -154,4 +155,4 @@ class GraphQL(Adapter):
         )
 
         # create GraphQL view
-        return GraphQLView.as_view(graphiql=True, schema=schema)
+        return csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))

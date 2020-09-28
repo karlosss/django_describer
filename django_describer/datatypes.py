@@ -67,6 +67,13 @@ class Boolean(Type):
     def convert(self, to, **kwargs):
         return to.boolean_type(self, **kwargs)
 
+    @staticmethod
+    def filters():
+        return (
+            "exact",
+            "isnull",
+        )
+
 
 class ModelType(Type):
     def __init__(self, model, **kwargs):
